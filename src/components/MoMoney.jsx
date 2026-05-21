@@ -4,7 +4,7 @@ import {
   Wallet, Upload, Edit2, Loader2, Calendar,
 } from 'lucide-react'
 import {
-  BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Legend, Cell,
+  BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Legend, Cell, LabelList,
 } from 'recharts'
 import { forecastPayments, groupByMonth, splitPaymentsByDate } from '../lib/payments'
 
@@ -266,8 +266,8 @@ export default function MoMoney({
                 Perry pays 40% upfront month after contract, 60% month after closing.
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={chartData}>
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={chartData} margin={{ top: 28, right: 8, left: 0, bottom: 0 }}>
                   <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#57534e' }} />
                   <YAxis
                     axisLine={false} tickLine={false}
@@ -280,6 +280,12 @@ export default function MoMoney({
                     formatter={(v) => fmt(v)}
                   />
                   <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
+                    <LabelList
+                      dataKey="amount"
+                      position="top"
+                      formatter={(v) => v > 0 ? (v >= 1000 ? `$${(v / 1000).toFixed(1)}k` : `$${v.toFixed(0)}`) : ''}
+                      style={{ fontSize: 10, fill: '#0a0a0f', fontWeight: 600 }}
+                    />
                     {chartData.map((entry, idx) => {
                       const now = new Date()
                       const isFuture = (entry.year > now.getFullYear()) ||
@@ -295,7 +301,13 @@ export default function MoMoney({
           {/* Payment schedule list */}
           {upcoming.length > 0 && (
             <div className="bg-white border border-line rounded-xl p-5">
-              <h3 className="font-display text-base font-medium mb-4">Expected Payments</h3>
+              <div className="flex items-baseline justify-between mb-4">
+                <h3 className="font-display text-base font-medium">Expected Payments</h3>
+                <div className="text-right">
+                  <div className="text-[10px] uppercase tracking-wider text-subtle">Total</div>
+                  <div className="font-display text-lg font-medium text-green-700">{fmt(upcomingTotal)}</div>
+                </div>
+              </div>
               <div className="space-y-2">
                 {upcoming.slice(0, 12).map((p, i) => (
                   <div key={i} className="flex items-center gap-3 p-3 bg-cream rounded-lg">
@@ -306,7 +318,7 @@ export default function MoMoney({
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate">{p.buyerName}</div>
                       <div className="text-[11px] text-subtle">
-                        {p.percent}% {p.type === 'upfront' ? 'upfront' : 'closing'} · {p.date.getFullYear()}
+                        {p.percent}% {p.type === 'upfront' ? 'upfront' : 'closing'} · paid {p.date.toLocaleString('en', { month: 'long', year: 'numeric' })}
                       </div>
                     </div>
                     <div className="text-right shrink-0">
@@ -327,7 +339,13 @@ export default function MoMoney({
 
           {past.length > 0 && (
             <div className="bg-white border border-line rounded-xl p-5">
-              <h3 className="font-display text-base font-medium mb-1">Collected</h3>
+              <div className="flex items-baseline justify-between mb-1">
+                <h3 className="font-display text-base font-medium">Collected</h3>
+                <div className="text-right">
+                  <div className="text-[10px] uppercase tracking-wider text-subtle">Total</div>
+                  <div className="font-display text-lg font-medium text-ink">{fmt(collectedTotal)}</div>
+                </div>
+              </div>
               <p className="text-xs text-muted mb-4">{past.length} payment{past.length !== 1 ? 's' : ''} based on contract/closing dates that have passed</p>
               <div className="space-y-2">
                 {past.slice(-8).reverse().map((p, i) => (
@@ -339,7 +357,7 @@ export default function MoMoney({
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate">{p.buyerName}</div>
                       <div className="text-[11px] text-subtle">
-                        {p.percent}% {p.type === 'upfront' ? 'upfront' : 'closing'} · {p.date.getFullYear()}
+                        {p.percent}% {p.type === 'upfront' ? 'upfront' : 'closing'} · paid {p.date.toLocaleString('en', { month: 'long', year: 'numeric' })}
                       </div>
                     </div>
                     <div className="text-right shrink-0">

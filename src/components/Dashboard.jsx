@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, ResponsiveContainer,
-  Tooltip, CartesianGrid, PieChart, Pie, Cell,
+  Tooltip, CartesianGrid, PieChart, Pie, Cell, LabelList,
 } from 'recharts'
 
 const fmt = (n) =>
@@ -278,9 +278,9 @@ export default function Dashboard({ sales, accounts, settings }) {
             No sales for {year} yet
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={220}>
+          <ResponsiveContainer width="100%" height={260}>
             {chartType === 'bar' ? (
-              <BarChart data={chartData}>
+              <BarChart data={chartData} margin={{ top: 28, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e7e5e0" vertical={false} />
                 <XAxis dataKey="quarter" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#57534e' }} />
                 <YAxis
@@ -297,7 +297,19 @@ export default function Dashboard({ sales, accounts, settings }) {
                   contentStyle={{ background: '#0a0a0f', border: 'none', borderRadius: 8, fontSize: 12, color: '#fafaf7' }}
                   formatter={(v) => fmt(v)}
                 />
-                <Bar dataKey="value" fill="#d4af37" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="value" fill="#d4af37" radius={[6, 6, 0, 0]}>
+                  <LabelList
+                    dataKey="value"
+                    position="top"
+                    formatter={(v) => {
+                      if (!v || v <= 0) return ''
+                      if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`
+                      if (v >= 1_000) return `$${(v / 1_000).toFixed(1)}k`
+                      return `$${v.toFixed(0)}`
+                    }}
+                    style={{ fontSize: 11, fill: '#0a0a0f', fontWeight: 600 }}
+                  />
+                </Bar>
               </BarChart>
             ) : (
               <LineChart data={chartData}>
