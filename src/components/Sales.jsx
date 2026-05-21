@@ -29,7 +29,7 @@ const emptyForm = {
   notes: '',
 }
 
-export default function Sales({ sales, addSale, updateSale, deleteSale, defaultRate }) {
+export default function Sales({ sales, addSale, updateSale, deleteSale, defaultRate, salesFilter, clearFilter }) {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState(emptyForm)
@@ -107,7 +107,56 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
     (Number(form.split) / 100)
 
   // Filter visible sales — hide cancelled by default
-  const visibleSales = sales.filter((s) => s.status !== 'cancelled')
+  // If salesFilter is set, only show sales that have a payment in the filter month
+  // Filter month logic: payment in month X = contract OR closing date in month X-1
+  const filterMatchesSale = (sale) => {
+    if (!salesFilter) return true
+    const matches = []
+    // Payment month X means contract was month X-1
+    if (sale.contract_date) {
+      const cd = new Date(sale.contract_date)
+      const payMonth = new Date(cd.getFullYear(), cd.getMonth() + 1, 7)
+      if (payMonth.getFullYear() === salesFilter.year && payMonth.getMonth() === salesFilter.month) {
+        matches.push('upfront')
+      }
+    }
+    if (sale.closing_date) {
+      const cd = new Date(sale.closing_date)
+      const payMonth = new Date(cd.getFullYear(), cd.getMonth() + 1, 7)
+      if (payMonth.getFullYear() === salesFilter.year && payMonth.getMonth() === salesFilter.month) {
+        matches.push('closing')
+      }
+    }
+    return matches.length > 0
+  }
+
+  const visibleSales = sales
+    .filter((s) => s.status !== 'cancelled')
+    .filter(filterMatchesSale)
+
+  // For each filtered sale, what payment type triggered the match? (upfront / closing)
+  const paymentTypeForSale = (sale) => {
+    if (!salesFilter) return null
+    if (sale.contract_date) {
+      const cd = new Date(sale.contract_date)
+      const payMonth = new Date(cd.getFullYear(), cd.getMonth() + 1, 7)
+      if (payMonth.getFullYear() === salesFilter.year && payMonth.getMonth() === salesFilter.month) {
+        return { percent: 40, type: 'upfront' }
+      }
+    }
+    if (sale.closing_date) {
+      const cd = new Date(sale.closing_date)
+      const payMonth = new Date(cd.getFullYear(), cd.getMonth() + 1, 7)
+      if (payMonth.getFullYear() === salesFilter.year && payMonth.getMonth() === salesFilter.month) {
+        return { percent: 60, type: 'closing' }
+      }
+    }
+    return null
+  }
+
+  const filterMonthLabel = salesFilter
+    ? new Date(salesFilter.year, salesFilter.month, 1).toLocaleString('en', { month: 'long', year: 'numeric' })
+    : null
 
   // Normalize legacy status for display
   const getStatusDisplay = (status) => {
@@ -125,7 +174,7 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
       <div className="flex items-center justify-between">
         <div>
           <h2 className="font-display text-2xl font-medium">Sales</h2>
-          <p className="text-sm text-muted">{visibleSales.length} total</p>
+          <p className="text-sm text-muted">{visibleSales.length} {salesFilter ? `paying in ${filterMonthLabel}` : 'total'}</p>
         </div>
         <button
           onClick={openAdd}
@@ -135,14 +184,32 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
         </button>
       </div>
 
+      {salesFilter && (
+        <div className="flex items-center justify-between bg-gold-soft border border-gold/30 rounded-xl px-4 py-3">
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-gold-dark font-medium">Filtered by payment month</div>
+            <div className="text-sm font-medium text-ink">{filterMonthLabel}</div>
+          </div>
+          <button
+            onClick={clearFilter}
+            className="flex items-center gap-1 px-3 py-1.5 bg-white border border-line rounded-lg text-xs font-medium hover:bg-cream transition"
+          >
+            <X size={12} /> Clear
+          </button>
+        </div>
+      )}
+
       {visibleSales.length === 0 ? (
         <div className="bg-white border border-line rounded-xl p-10 text-center">
-          <p className="text-sm text-muted">No sales yet. Hit "Add Sale" to log your first.</p>
+          <p className="text-sm text-muted">
+            {salesFilter ? `No sales paying out in ${filterMonthLabel}.` : 'No sales yet. Hit "Add Sale" to log your first.'}
+          </p>
         </div>
       ) : (
         <div className="space-y-2">
           {visibleSales.map((sale) => {
             const status = getStatusDisplay(sale.status)
+            const payment = paymentTypeForSale(sale)
             return (
               <div
                 key={sale.id}
@@ -160,6 +227,11 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
                       >
                         {status?.label}
                       </span>
+                      {payment && (
+                        <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full font-medium bg-gold-soft text-gold-dark">
+                          {payment.percent}% {payment.type}
+                        </span>
+                      )}
                     </div>
                     <div className="text-xs text-muted space-y-0.5">
                       {sale.address && <div className="truncate">{sale.address}</div>}
@@ -179,10 +251,10 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
                   </div>
                   <div className="text-right shrink-0">
                     <div className="font-display text-lg font-medium text-ink">
-                      {fmt(sale.commission_amount)}
+                      {payment ? `+${fmt(sale.commission_amount * payment.percent / 100)}` : fmt(sale.commission_amount)}
                     </div>
                     <div className="text-[10px] text-subtle uppercase tracking-wider">
-                      {fmt(sale.sale_price)} × {sale.commission_rate}%
+                      {payment ? `${payment.percent}% of ${fmt(sale.commission_amount)}` : `${fmt(sale.sale_price)} × ${sale.commission_rate}%`}
                     </div>
                     <div className="flex gap-1 mt-2 justify-end">
                       <button

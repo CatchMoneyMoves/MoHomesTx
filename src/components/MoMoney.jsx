@@ -93,6 +93,7 @@ export default function MoMoney({
   sales,
   accounts, addAccount, updateAccount, deleteAccount,
   transactions, addTransaction, deleteTransaction,
+  goToSales,
 }) {
   const [view, setView] = useState('income') // 'income' | 'accounts' | 'transactions'
   const [showAccountForm, setShowAccountForm] = useState(false)
@@ -276,10 +277,30 @@ export default function MoMoney({
                   />
                   <Tooltip
                     cursor={{ fill: '#fefce8' }}
-                    contentStyle={{ background: '#0a0a0f', border: 'none', borderRadius: 8, fontSize: 12, color: '#fafaf7' }}
-                    formatter={(v) => fmt(v)}
+                    content={({ active, payload }) => {
+                      if (!active || !payload || !payload.length) return null
+                      const d = payload[0].payload
+                      if (!d.amount) return null
+                      return (
+                        <div className="bg-ink text-cream px-3 py-2 rounded-lg shadow-lg text-xs">
+                          <div className="font-medium">{d.label} {d.year}</div>
+                          <div className="font-display text-base text-gold mt-0.5">{fmt(d.amount)}</div>
+                          <div className="text-[10px] text-cream/60 mt-1">
+                            {d.count} payment{d.count !== 1 ? 's' : ''} · click to view
+                          </div>
+                        </div>
+                      )
+                    }}
                   />
-                  <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
+                  <Bar
+                    dataKey="amount"
+                    radius={[6, 6, 0, 0]}
+                    cursor="pointer"
+                    onClick={(data) => {
+                      if (!data || !data.count || !goToSales) return
+                      goToSales({ year: data.year, month: data.month })
+                    }}
+                  >
                     <LabelList
                       dataKey="amount"
                       position="top"

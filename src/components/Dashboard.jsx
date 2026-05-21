@@ -58,6 +58,7 @@ const PIPELINE_LABELS = {
 export default function Dashboard({ sales, accounts, settings }) {
   const [year, setYear] = useState(new Date().getFullYear())
   const [dateSource, setDateSource] = useState('contract_date')
+  const [period, setPeriod] = useState('monthly') // 'monthly' | 'quarterly'
   const [chartType, setChartType] = useState('bar')
   const [metric, setMetric] = useState('commission')
   const [expandedQuarters, setExpandedQuarters] = useState({})
@@ -95,12 +96,21 @@ export default function Dashboard({ sales, accounts, settings }) {
       Q3: { sales: [], commission: 0, volume: 0 },
       Q4: { sales: [], commission: 0, volume: 0 },
     }
+    const months = Array.from({ length: 12 }, (_, i) => ({
+      idx: i,
+      label: new Date(2000, i, 1).toLocaleString('en', { month: 'short' }),
+      full: new Date(2000, i, 1).toLocaleString('en', { month: 'long' }),
+      sales: [], commission: 0, volume: 0,
+    }))
     yearSales.forEach((s) => {
       const m = new Date(s[dateSource]).getMonth()
       const q = m < 3 ? 'Q1' : m < 6 ? 'Q2' : m < 9 ? 'Q3' : 'Q4'
       quarters[q].sales.push(s)
       quarters[q].commission += Number(s.commission_amount || 0)
       quarters[q].volume += Number(s.sale_price || 0)
+      months[m].sales.push(s)
+      months[m].commission += Number(s.commission_amount || 0)
+      months[m].volume += Number(s.sale_price || 0)
     })
 
     const pipelineCounts = {}
@@ -130,15 +140,22 @@ export default function Dashboard({ sales, accounts, settings }) {
     return {
       yearSales, ytdCommission, ytdVolume,
       commissionGoal, volumeGoal, commissionPct, volumePct,
-      quarters, pipeline, netWorth,
+      quarters, months, pipeline, netWorth,
       avgCommission, avgVolume, commissionPace, volumePace,
     }
   }, [sales, accounts, settings, dateSource, year])
 
-  const chartData = ['Q1', 'Q2', 'Q3', 'Q4'].map((q) => ({
-    quarter: q,
-    value: metric === 'commission' ? stats.quarters[q].commission : stats.quarters[q].volume,
-  }))
+  const chartData = period === 'monthly'
+    ? stats.months.map((m) => ({
+        label: m.label,
+        value: metric === 'commission' ? m.commission : m.volume,
+        sales: m.sales.length,
+      }))
+    : ['Q1', 'Q2', 'Q3', 'Q4'].map((q) => ({
+        label: q,
+        value: metric === 'commission' ? stats.quarters[q].commission : stats.quarters[q].volume,
+        sales: stats.quarters[q].sales.length,
+      }))
 
   const heroValue = metric === 'commission' ? stats.ytdCommission : stats.ytdVolume
   const heroGoal = metric === 'commission' ? stats.commissionGoal : stats.volumeGoal
@@ -148,6 +165,15 @@ export default function Dashboard({ sales, accounts, settings }) {
 
   const toggleQuarter = (q) => setExpandedQuarters((p) => ({ ...p, [q]: !p[q] }))
   const toggleMonth = (k) => setExpandedMonths((p) => ({ ...p, [k]: !p[k] }))
+
+  // Weeks left in the year (auto-updates with system date)
+  const weeksLeft = useMemo(() => {
+    const now = new Date()
+    const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59)
+    const msLeft = endOfYear - now
+    const weeks = Math.max(0, Math.ceil(msLeft / (7 * 24 * 60 * 60 * 1000)))
+    return weeks
+  }, [])
 
   return (
     <div className="space-y-5">
@@ -191,7 +217,7 @@ export default function Dashboard({ sales, accounts, settings }) {
           <span className="text-xs tracking-widest text-gold uppercase">
             YTD {metric === 'volume' ? 'Sales Volume' : 'Commission'}
           </span>
-          <span className="text-xs text-cream/60">{year}</span>
+          <span className="text-xs text-cream/60">{year} · {weeksLeft} {weeksLeft === 1 ? 'week' : 'weeks'} left</span>
         </div>
         <div className="font-display text-5xl md:text-6xl font-medium tracking-tight">
           {metric === 'volume' ? fmtCompact(heroValue) : fmt(heroValue)}
@@ -233,20 +259,20 @@ export default function Dashboard({ sales, accounts, settings }) {
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-white border border-line rounded-xl p-1 flex">
           <button
-            onClick={() => setDateSource('contract_date')}
+            onClick={() => setPeriod('monthly')}
             className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition ${
-              dateSource === 'contract_date' ? 'bg-ink text-cream' : 'text-muted hover:bg-cream'
+              period === 'monthly' ? 'bg-ink text-cream' : 'text-muted hover:bg-cream'
             }`}
           >
-            <Calendar size={12} /> Contract
+            <Calendar size={12} /> Monthly
           </button>
           <button
-            onClick={() => setDateSource('closing_date')}
+            onClick={() => setPeriod('quarterly')}
             className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition ${
-              dateSource === 'closing_date' ? 'bg-ink text-cream' : 'text-muted hover:bg-cream'
+              period === 'quarterly' ? 'bg-ink text-cream' : 'text-muted hover:bg-cream'
             }`}
           >
-            <Calendar size={12} /> Closing
+            <Calendar size={12} /> Quarterly
           </button>
         </div>
         <div className="bg-white border border-line rounded-xl p-1 flex">
@@ -271,7 +297,7 @@ export default function Dashboard({ sales, accounts, settings }) {
 
       <div className="bg-white border border-line rounded-xl p-5">
         <h3 className="font-display text-base font-medium mb-4">
-          Quarterly {metric === 'volume' ? 'Sales Volume' : 'Commission'}
+          {period === 'monthly' ? 'Monthly' : 'Quarterly'} {metric === 'volume' ? 'Sales Volume' : 'Commission'}
         </h3>
         {stats.yearSales.length === 0 ? (
           <div className="h-[220px] flex items-center justify-center text-xs text-subtle">
@@ -282,7 +308,7 @@ export default function Dashboard({ sales, accounts, settings }) {
             {chartType === 'bar' ? (
               <BarChart data={chartData} margin={{ top: 28, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e7e5e0" vertical={false} />
-                <XAxis dataKey="quarter" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#57534e' }} />
+                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#57534e' }} />
                 <YAxis
                   axisLine={false} tickLine={false}
                   tick={{ fontSize: 10, fill: '#a8a29e' }}
@@ -307,14 +333,14 @@ export default function Dashboard({ sales, accounts, settings }) {
                       if (v >= 1_000) return `$${(v / 1_000).toFixed(1)}k`
                       return `$${v.toFixed(0)}`
                     }}
-                    style={{ fontSize: 11, fill: '#0a0a0f', fontWeight: 600 }}
+                    style={{ fontSize: period === 'monthly' ? 9 : 11, fill: '#0a0a0f', fontWeight: 600 }}
                   />
                 </Bar>
               </BarChart>
             ) : (
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e7e5e0" vertical={false} />
-                <XAxis dataKey="quarter" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#57534e' }} />
+                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#57534e' }} />
                 <YAxis
                   axisLine={false} tickLine={false}
                   tick={{ fontSize: 10, fill: '#a8a29e' }}
@@ -335,6 +361,74 @@ export default function Dashboard({ sales, accounts, settings }) {
         )}
       </div>
 
+      {period === 'monthly' ? (
+        <div className="space-y-2">
+          {stats.months.map((m) => {
+            if (m.sales.length === 0) return null
+            const monthKey = `M-${m.idx}`
+            const isExpanded = expandedMonths[monthKey]
+            const monthValue = metric === 'commission' ? m.commission : m.volume
+            return (
+              <div key={m.idx} className="bg-white border border-line rounded-xl overflow-hidden">
+                <button
+                  onClick={() => toggleMonth(monthKey)}
+                  className="w-full p-4 flex items-center justify-between hover:bg-cream transition"
+                >
+                  <div className="flex items-center gap-3">
+                    {isExpanded ? <ChevronDown size={16} className="text-muted" /> : <ChevronRight size={16} className="text-muted" />}
+                    <div className="text-left">
+                      <div className="font-display text-lg font-medium">{m.full}</div>
+                      <div className="text-xs text-muted">
+                        {m.sales.length} {m.sales.length === 1 ? 'sale' : 'sales'}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-display text-lg font-medium text-ink">
+                      {metric === 'volume' ? fmtCompact(monthValue) : fmt(monthValue)}
+                    </div>
+                    <div className="text-[10px] text-subtle uppercase tracking-wider">
+                      {metric === 'commission' ? `${fmtCompact(m.volume)} vol` : `${fmt(m.commission)} comm`}
+                    </div>
+                  </div>
+                </button>
+                {isExpanded && (
+                  <div className="border-t border-line bg-cream/50 px-4 py-3 space-y-1.5">
+                    {m.sales.map((sale) => {
+                      const status = STATUS_COLORS[sale.status]
+                      return (
+                        <div key={sale.id} className="bg-white border border-line rounded-lg p-3 flex items-center justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <div className="font-medium text-sm truncate">{sale.buyer_name}</div>
+                              <span
+                                className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-medium"
+                                style={{ background: status?.bg, color: status?.color }}
+                              >
+                                {STATUS_LABELS[sale.status]}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-subtle mt-0.5 flex items-center gap-2 flex-wrap">
+                              {sale.plan_design && <span>{sale.plan_design}</span>}
+                              <span>{fmt(sale.sale_price)}</span>
+                              <span className="capitalize">{sale.build_type}</span>
+                              <span>{new Date(sale[dateSource]).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className="font-display text-base font-medium">{fmt(sale.commission_amount)}</div>
+                            <div className="text-[10px] text-subtle">{sale.commission_rate}% × {sale.split}%</div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      ) : (
       <div className="space-y-2">
         {['Q1', 'Q2', 'Q3', 'Q4'].map((q) => {
           const data = stats.quarters[q]
@@ -450,6 +544,7 @@ export default function Dashboard({ sales, accounts, settings }) {
           )
         })}
       </div>
+      )}
 
       {stats.pipeline.length > 0 && (
         <div className="bg-white border border-line rounded-xl p-5">
