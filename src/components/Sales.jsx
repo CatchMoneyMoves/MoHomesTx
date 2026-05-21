@@ -1,0 +1,463 @@
+import { useState } from 'react'
+import { Plus, Edit2, Trash2, X, Check } from 'lucide-react'
+
+const STATUS_OPTIONS = [
+  { value: 'under_contract', label: 'Under Contract', color: '#1d4ed8', bg: '#dbeafe' },
+  { value: 'closed', label: 'Closed', color: '#047857', bg: '#d1fae5' },
+]
+
+const fmt = (n) =>
+  new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(n || 0)
+
+const emptyForm = {
+  buyer_name: '',
+  address: '',
+  plan_design: '',
+  contract_date: new Date().toISOString().slice(0, 10),
+  closing_date: '',
+  status: 'under_contract',
+  build_type: 'inventory',
+  sale_price: '',
+  commission_rate: 2.0,
+  split: 100,
+  realtor_name: '',
+  lead_source: '',
+  notes: '',
+}
+
+export default function Sales({ sales, addSale, updateSale, deleteSale, defaultRate }) {
+  const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState(null)
+  const [form, setForm] = useState(emptyForm)
+  const [saving, setSaving] = useState(false)
+
+  const openAdd = () => {
+    setForm({ ...emptyForm, commission_rate: defaultRate || 2.0 })
+    setEditingId(null)
+    setShowForm(true)
+  }
+
+  const openEdit = (sale) => {
+    // Migrate legacy statuses to new schema
+    let status = sale.status || 'under_contract'
+    if (['pending_earnest', 'secured', 'under_construction'].includes(status)) status = 'under_contract'
+    if (status === 'paid') status = 'closed'
+
+    setForm({
+      buyer_name: sale.buyer_name || '',
+      address: sale.address || '',
+      plan_design: sale.plan_design || '',
+      contract_date: sale.contract_date || '',
+      closing_date: sale.closing_date || '',
+      status,
+      build_type: sale.build_type || 'inventory',
+      sale_price: sale.sale_price || '',
+      commission_rate: sale.commission_rate || 2.0,
+      split: sale.split || 100,
+      realtor_name: sale.realtor_name || '',
+      lead_source: sale.lead_source || '',
+      notes: sale.notes || '',
+    })
+    setEditingId(sale.id)
+    setShowForm(true)
+  }
+
+  const handleBuildTypeChange = (type) => {
+    setForm((f) => ({
+      ...f,
+      build_type: type,
+      commission_rate: type === 'dirt' ? 2.5 : 2.0,
+    }))
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    const payload = {
+      ...form,
+      sale_price: Number(form.sale_price) || 0,
+      commission_rate: Number(form.commission_rate) || 2.0,
+      split: Number(form.split) || 100,
+      closing_date: form.closing_date || null,
+    }
+    const { error } = editingId
+      ? await updateSale(editingId, payload)
+      : await addSale(payload)
+    setSaving(false)
+    if (error) {
+      alert('Error: ' + error.message)
+    } else {
+      setShowForm(false)
+      setEditingId(null)
+    }
+  }
+
+  const handleDelete = async (id) => {
+    if (!confirm('Delete this sale? This cannot be undone.')) return
+    await deleteSale(id)
+  }
+
+  const previewCommission =
+    (Number(form.sale_price) || 0) *
+    (Number(form.commission_rate) / 100) *
+    (Number(form.split) / 100)
+
+  // Filter visible sales — hide cancelled by default
+  const visibleSales = sales.filter((s) => s.status !== 'cancelled')
+
+  // Normalize legacy status for display
+  const getStatusDisplay = (status) => {
+    if (['pending_earnest', 'secured', 'under_construction'].includes(status)) {
+      return STATUS_OPTIONS.find((s) => s.value === 'under_contract')
+    }
+    if (status === 'paid') {
+      return STATUS_OPTIONS.find((s) => s.value === 'closed')
+    }
+    return STATUS_OPTIONS.find((s) => s.value === status)
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-display text-2xl font-medium">Sales</h2>
+          <p className="text-sm text-muted">{visibleSales.length} total</p>
+        </div>
+        <button
+          onClick={openAdd}
+          className="flex items-center gap-1.5 px-4 py-2 bg-ink text-cream rounded-lg text-sm font-medium hover:bg-ink/90 transition"
+        >
+          <Plus size={14} /> Add Sale
+        </button>
+      </div>
+
+      {visibleSales.length === 0 ? (
+        <div className="bg-white border border-line rounded-xl p-10 text-center">
+          <p className="text-sm text-muted">No sales yet. Hit "Add Sale" to log your first.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {visibleSales.map((sale) => {
+            const status = getStatusDisplay(sale.status)
+            return (
+              <div
+                key={sale.id}
+                className="bg-white border border-line rounded-xl p-4 hover:border-gold/40 transition"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <h3 className="font-display text-base font-medium truncate">
+                        {sale.buyer_name}
+                      </h3>
+                      <span
+                        className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full font-medium"
+                        style={{ background: status?.bg, color: status?.color }}
+                      >
+                        {status?.label}
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted space-y-0.5">
+                      {sale.address && <div className="truncate">{sale.address}</div>}
+                      <div className="flex items-center gap-3 flex-wrap text-subtle">
+                        {sale.plan_design && <span>{sale.plan_design}</span>}
+                        <span className="capitalize">{sale.build_type}</span>
+                        <span>Split {sale.split}%</span>
+                        {sale.contract_date && (
+                          <span>
+                            {new Date(sale.contract_date).toLocaleDateString('en-US', {
+                              month: 'short', day: 'numeric', year: 'numeric',
+                            })}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="font-display text-lg font-medium text-ink">
+                      {fmt(sale.commission_amount)}
+                    </div>
+                    <div className="text-[10px] text-subtle uppercase tracking-wider">
+                      {fmt(sale.sale_price)} × {sale.commission_rate}%
+                    </div>
+                    <div className="flex gap-1 mt-2 justify-end">
+                      <button
+                        onClick={() => openEdit(sale)}
+                        className="p-1.5 hover:bg-line rounded-lg transition"
+                        aria-label="Edit sale"
+                      >
+                        <Edit2 size={13} className="text-muted" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(sale.id)}
+                        className="p-1.5 hover:bg-red-50 rounded-lg transition"
+                        aria-label="Delete sale"
+                      >
+                        <Trash2 size={13} className="text-red-600" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {showForm && (
+        <div
+          className="fixed inset-0 bg-ink/40 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4"
+          onClick={() => setShowForm(false)}
+        >
+          <div
+            className="bg-cream w-full md:max-w-2xl md:rounded-2xl rounded-t-2xl max-h-[92vh] overflow-y-auto safe-bottom"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 bg-cream border-b border-line p-5 flex items-center justify-between z-10">
+              <h3 className="font-display text-xl font-medium">
+                {editingId ? 'Edit Sale' : 'New Sale'}
+              </h3>
+              <div className="flex items-center gap-2">
+                {editingId && (
+                  <button
+                    onClick={() => { handleDelete(editingId); setShowForm(false) }}
+                    className="p-2 hover:bg-red-50 rounded-lg transition text-red-600"
+                    aria-label="Delete sale"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowForm(false)}
+                  className="p-1.5 hover:bg-line rounded-lg transition"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-5 space-y-4">
+              <Field label="Buyer Name" required>
+                <input
+                  type="text"
+                  value={form.buyer_name}
+                  onChange={(e) => setForm({ ...form, buyer_name: e.target.value })}
+                  required
+                  className="w-full px-3 py-2.5 bg-white border border-line rounded-lg text-sm"
+                />
+              </Field>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Address">
+                  <input
+                    type="text"
+                    value={form.address}
+                    onChange={(e) => setForm({ ...form, address: e.target.value })}
+                    className="w-full px-3 py-2.5 bg-white border border-line rounded-lg text-sm"
+                  />
+                </Field>
+                <Field label="Plan / Design">
+                  <input
+                    type="text"
+                    value={form.plan_design}
+                    onChange={(e) => setForm({ ...form, plan_design: e.target.value })}
+                    className="w-full px-3 py-2.5 bg-white border border-line rounded-lg text-sm"
+                  />
+                </Field>
+              </div>
+
+              <Field label="Build Type">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleBuildTypeChange('inventory')}
+                    className={`px-3 py-2.5 rounded-lg text-sm font-medium transition border ${
+                      form.build_type === 'inventory'
+                        ? 'bg-ink text-cream border-ink'
+                        : 'bg-white text-muted border-line'
+                    }`}
+                  >
+                    Inventory · 2%
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleBuildTypeChange('dirt')}
+                    className={`px-3 py-2.5 rounded-lg text-sm font-medium transition border ${
+                      form.build_type === 'dirt'
+                        ? 'bg-ink text-cream border-ink'
+                        : 'bg-white text-muted border-line'
+                    }`}
+                  >
+                    Dirt · 2.5%
+                  </button>
+                </div>
+              </Field>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Sale Price">
+                  <input
+                    type="number"
+                    value={form.sale_price}
+                    onChange={(e) => setForm({ ...form, sale_price: e.target.value })}
+                    required
+                    step="100"
+                    className="w-full px-3 py-2.5 bg-white border border-line rounded-lg text-sm"
+                  />
+                </Field>
+                <Field label="Commission Rate %">
+                  <input
+                    type="number"
+                    value={form.commission_rate}
+                    onChange={(e) => setForm({ ...form, commission_rate: e.target.value })}
+                    step="0.1"
+                    className="w-full px-3 py-2.5 bg-white border border-line rounded-lg text-sm"
+                  />
+                </Field>
+              </div>
+
+              <Field label="Split">
+                <div className="grid grid-cols-3 gap-2">
+                  {[100, 80, 20].map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setForm({ ...form, split: s })}
+                      className={`px-3 py-2.5 rounded-lg text-sm font-medium transition border ${
+                        form.split === s
+                          ? 'bg-ink text-cream border-ink'
+                          : 'bg-white text-muted border-line'
+                      }`}
+                    >
+                      {s}%
+                    </button>
+                  ))}
+                </div>
+              </Field>
+
+              <div className="bg-gold-soft border border-gold/30 rounded-xl p-4">
+                <div className="text-[10px] uppercase tracking-widest text-gold-dark font-medium mb-1">
+                  Commission Preview
+                </div>
+                <div className="font-display text-2xl font-medium text-ink">
+                  {fmt(previewCommission)}
+                </div>
+                <div className="text-[10px] text-muted mt-1">
+                  {fmt(form.sale_price || 0)} × {form.commission_rate}% × {form.split}% split
+                </div>
+                <div className="mt-3 pt-3 border-t border-gold/20 grid grid-cols-2 gap-2 text-[11px]">
+                  <div>
+                    <div className="text-subtle uppercase tracking-wider text-[9px]">40% Upfront</div>
+                    <div className="font-medium text-ink">{fmt(previewCommission * 0.4)}</div>
+                  </div>
+                  <div>
+                    <div className="text-subtle uppercase tracking-wider text-[9px]">60% At Close</div>
+                    <div className="font-medium text-ink">{fmt(previewCommission * 0.6)}</div>
+                  </div>
+                </div>
+              </div>
+
+              <Field label="Status">
+                <div className="grid grid-cols-2 gap-2">
+                  {STATUS_OPTIONS.map((s) => (
+                    <button
+                      key={s.value}
+                      type="button"
+                      onClick={() => setForm({ ...form, status: s.value })}
+                      className={`px-3 py-2.5 rounded-lg text-sm font-medium transition border ${
+                        form.status === s.value
+                          ? 'bg-ink text-cream border-ink'
+                          : 'bg-white text-muted border-line'
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Contract Date">
+                  <input
+                    type="date"
+                    value={form.contract_date}
+                    onChange={(e) => setForm({ ...form, contract_date: e.target.value })}
+                    className="w-full px-3 py-2.5 bg-white border border-line rounded-lg text-sm"
+                  />
+                </Field>
+                <Field label="Closing Date">
+                  <input
+                    type="date"
+                    value={form.closing_date}
+                    onChange={(e) => setForm({ ...form, closing_date: e.target.value })}
+                    className="w-full px-3 py-2.5 bg-white border border-line rounded-lg text-sm"
+                  />
+                </Field>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Realtor">
+                  <input
+                    type="text"
+                    value={form.realtor_name}
+                    onChange={(e) => setForm({ ...form, realtor_name: e.target.value })}
+                    className="w-full px-3 py-2.5 bg-white border border-line rounded-lg text-sm"
+                  />
+                </Field>
+                <Field label="Lead Source">
+                  <input
+                    type="text"
+                    value={form.lead_source}
+                    onChange={(e) => setForm({ ...form, lead_source: e.target.value })}
+                    className="w-full px-3 py-2.5 bg-white border border-line rounded-lg text-sm"
+                  />
+                </Field>
+              </div>
+
+              <Field label="Notes">
+                <textarea
+                  value={form.notes}
+                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                  rows={3}
+                  className="w-full px-3 py-2.5 bg-white border border-line rounded-lg text-sm resize-none"
+                />
+              </Field>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowForm(false)}
+                  className="flex-1 px-4 py-3 border border-line rounded-lg text-sm font-medium hover:bg-white transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="flex-1 px-4 py-3 bg-ink text-cream rounded-lg text-sm font-medium hover:bg-ink/90 disabled:opacity-50 transition flex items-center justify-center gap-1.5"
+                >
+                  <Check size={14} />
+                  {saving ? 'Saving…' : editingId ? 'Save Changes' : 'Add Sale'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Field({ label, required, children }) {
+  return (
+    <div>
+      <label className="block text-[10px] uppercase tracking-wider text-muted font-medium mb-1.5">
+        {label} {required && <span className="text-gold-dark">*</span>}
+      </label>
+      {children}
+    </div>
+  )
+}
