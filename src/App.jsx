@@ -23,6 +23,7 @@ const TABS = [
 export default function App() {
   const { user, loading: authLoading } = useAuth()
   const [activeTab, setActiveTab] = useState('dashboard')
+  const [salesFilter, setSalesFilter] = useState(null) // { year, month, type: 'upfront'|'closing' } | null
 
   if (authLoading) {
     return (
@@ -34,10 +35,18 @@ export default function App() {
 
   if (!user) return <Login />
 
-  return <AuthedApp user={user} activeTab={activeTab} setActiveTab={setActiveTab} />
+  return (
+    <AuthedApp
+      user={user}
+      activeTab={activeTab}
+      setActiveTab={setActiveTab}
+      salesFilter={salesFilter}
+      setSalesFilter={setSalesFilter}
+    />
+  )
 }
 
-function AuthedApp({ user, activeTab, setActiveTab }) {
+function AuthedApp({ user, activeTab, setActiveTab, salesFilter, setSalesFilter }) {
   const { sales, loading: salesLoading, addSale, updateSale, deleteSale } = useSales(user)
   const { accounts, addAccount, updateAccount, deleteAccount } = useAccounts(user)
   const { transactions, addTransaction, deleteTransaction } = useTransactions(user)
@@ -103,6 +112,8 @@ function AuthedApp({ user, activeTab, setActiveTab }) {
                 updateSale={updateSale}
                 deleteSale={deleteSale}
                 defaultRate={settings.default_commission_rate}
+                salesFilter={salesFilter}
+                clearFilter={() => setSalesFilter(null)}
               />
             )}
             {activeTab === 'momoney' && (
@@ -115,6 +126,10 @@ function AuthedApp({ user, activeTab, setActiveTab }) {
                 transactions={transactions}
                 addTransaction={addTransaction}
                 deleteTransaction={deleteTransaction}
+                goToSales={(filter) => {
+                  setSalesFilter(filter)
+                  setActiveTab('sales')
+                }}
               />
             )}
             {activeTab === 'settings' && (
