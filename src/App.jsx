@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { LayoutDashboard, Home, Wallet, Settings as SettingsIcon, Loader2 } from 'lucide-react'
 
 import { useAuth } from './hooks/useAuth'
@@ -20,10 +20,78 @@ const TABS = [
   { id: 'settings', label: 'Settings', icon: SettingsIcon },
 ]
 
+const VALID_TABS = TABS.map((t) => t.id)
+const VALID_MODES = ['contract', 'payment']
+
+// Encode state to URL hash. Examples:
+//   #dashboard
+//   #sales
+//   #sales?year=2026&month=1&mode=contract
+//   #momoney
+function encodeHash(tab, filter) {
+  if (!filter) return `#${tab}`
+  const params = new URLSearchParams({
+    year: String(filter.year),
+    month: String(filter.month),
+    mode: filter.mode || 'payment',
+  })
+  return `#${tab}?${params.toString()}`
+}
+
+// Decode URL hash back to {tab, filter}
+function decodeHash(hash) {
+  const raw = (hash || '').replace(/^#/, '')
+  if (!raw) return { tab: 'dashboard', filter: null }
+  const [tabPart, queryPart] = raw.split('?')
+  const tab = VALID_TABS.includes(tabPart) ? tabPart : 'dashboard'
+  if (!queryPart) return { tab, filter: null }
+  const params = new URLSearchParams(queryPart)
+  const year = Number(params.get('year'))
+  const month = Number(params.get('month'))
+  const mode = params.get('mode')
+  if (!Number.isFinite(year) || !Number.isFinite(month)) return { tab, filter: null }
+  return {
+    tab,
+    filter: {
+      year,
+      month,
+      mode: VALID_MODES.includes(mode) ? mode : 'payment',
+    },
+  }
+}
+
 export default function App() {
   const { user, loading: authLoading } = useAuth()
-  const [activeTab, setActiveTab] = useState('dashboard')
-  const [salesFilter, setSalesFilter] = useState(null) // { year, month, mode: 'contract'|'payment' } | null
+
+  // Initialize from URL hash so deep links + back button restore state correctly
+  const initial = decodeHash(typeof window !== 'undefined' ? window.location.hash : '')
+  const [activeTab, setActiveTab] = useState(initial.tab)
+  const [salesFilter, setSalesFilter] = useState(initial.filter)
+  const internalNav = useRef(false)
+
+  // Push hash on state change (push history entry so back button works)
+  useEffect(() => {
+    const desired = encodeHash(activeTab, salesFilter)
+    if (window.location.hash === desired) return
+    if (internalNav.current) {
+      // We just got here from a popstate — don't push, just consume the flag
+      internalNav.current = false
+      return
+    }
+    window.history.pushState({ tab: activeTab, filter: salesFilter }, '', desired)
+  }, [activeTab, salesFilter])
+
+  // Listen for back/forward navigation
+  useEffect(() => {
+    const onPop = () => {
+      const { tab, filter } = decodeHash(window.location.hash)
+      internalNav.current = true
+      setActiveTab(tab)
+      setSalesFilter(filter)
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
 
   if (authLoading) {
     return (
@@ -52,6 +120,12 @@ function AuthedApp({ user, activeTab, setActiveTab, salesFilter, setSalesFilter 
   const { transactions, addTransaction, deleteTransaction } = useTransactions(user)
   const { settings, updateSettings } = useSettings(user)
 
+  // Switching tabs from nav clears any active filter
+  const handleTabChange = (tab) => {
+    if (tab !== 'sales') setSalesFilter(null)
+    setActiveTab(tab)
+  }
+
   const goToSales = (filter) => {
     setSalesFilter(filter)
     setActiveTab('sales')
@@ -74,7 +148,7 @@ function AuthedApp({ user, activeTab, setActiveTab, salesFilter, setSalesFilter 
               return (
                 <button
                   key={t.id}
-                  onClick={() => setActiveTab(t.id)}
+                  onClick={() => handleTabChange(t.id)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition ${
                     activeTab === t.id ? 'bg-ink text-cream' : 'text-muted hover:bg-white'
                   }`}
@@ -112,7 +186,7 @@ function AuthedApp({ user, activeTab, setActiveTab, salesFilter, setSalesFilter 
                 sales={sales}
                 accounts={accounts}
                 settings={settings}
-                setActiveTab={setActiveTab}
+                setActiveTab={handleTabChange}
                 goToSales={goToSales}
               />
             )}
@@ -156,7 +230,7 @@ function AuthedApp({ user, activeTab, setActiveTab, salesFilter, setSalesFilter 
             return (
               <button
                 key={t.id}
-                onClick={() => setActiveTab(t.id)}
+                onClick={() => handleTabChange(t.id)}
                 className={`flex flex-col items-center justify-center gap-0.5 py-2.5 transition ${
                   active ? 'text-ink' : 'text-subtle'
                 }`}
