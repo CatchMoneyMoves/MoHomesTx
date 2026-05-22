@@ -103,7 +103,7 @@ function AuthedApp({ user, activeTab, setActiveTab, salesFilter, setSalesFilter 
         ) : (
           <>
             {activeTab === 'dashboard' && (
-              <Dashboard sales={sales} accounts={accounts} settings={settings} />
+              <Dashboard sales={sales} accounts={accounts} settings={settings} setActiveTab={setActiveTab} />
             )}
             {activeTab === 'sales' && (
               <Sales
