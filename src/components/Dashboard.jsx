@@ -55,11 +55,10 @@ const PIPELINE_LABELS = {
   cancelled: 'Cancelled',
 }
 
-export default function Dashboard({ sales, accounts, settings }) {
+export default function Dashboard({ sales, accounts, settings, setActiveTab }) {
   const [year, setYear] = useState(new Date().getFullYear())
   const [dateSource, setDateSource] = useState('contract_date')
   const [period, setPeriod] = useState('monthly') // 'monthly' | 'quarterly'
-  const [chartType, setChartType] = useState('bar')
   const [metric, setMetric] = useState('commission')
   const [expandedQuarters, setExpandedQuarters] = useState({})
   const [expandedMonths, setExpandedMonths] = useState({})
@@ -240,59 +239,44 @@ export default function Dashboard({ sales, accounts, settings }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiCard icon={<Home size={14} />} label="Sales" value={stats.yearSales.length} suffix="YTD" />
+      <div className="grid grid-cols-3 gap-3">
+        <KpiCard
+          icon={<Home size={14} />}
+          label="Sales"
+          value={stats.yearSales.length}
+          suffix="YTD"
+          onClick={() => setActiveTab && setActiveTab('sales')}
+        />
         <KpiCard
           icon={<DollarSign size={14} />}
           label={metric === 'volume' ? 'Avg Price' : 'Avg Commission'}
           value={metric === 'volume' ? fmtCompact(heroAvg) : fmt(heroAvg)}
         />
         <KpiCard
-          icon={<TrendingUp size={14} />}
-          label="Projected"
-          value={metric === 'volume' ? fmtCompact(heroPace) : fmt(heroPace)}
-          suffix="Annual"
+          icon={<Target size={14} />}
+          label="Net Worth"
+          value={fmt(stats.netWorth)}
+          onClick={() => setActiveTab && setActiveTab('momoney')}
         />
-        <KpiCard icon={<Target size={14} />} label="Net Worth" value={fmt(stats.netWorth)} />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="bg-white border border-line rounded-xl p-1 flex">
-          <button
-            onClick={() => setPeriod('monthly')}
-            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition ${
-              period === 'monthly' ? 'bg-ink text-cream' : 'text-muted hover:bg-cream'
-            }`}
-          >
-            <Calendar size={12} /> Monthly
-          </button>
-          <button
-            onClick={() => setPeriod('quarterly')}
-            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition ${
-              period === 'quarterly' ? 'bg-ink text-cream' : 'text-muted hover:bg-cream'
-            }`}
-          >
-            <Calendar size={12} /> Quarterly
-          </button>
-        </div>
-        <div className="bg-white border border-line rounded-xl p-1 flex">
-          <button
-            onClick={() => setChartType('bar')}
-            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition ${
-              chartType === 'bar' ? 'bg-ink text-cream' : 'text-muted hover:bg-cream'
-            }`}
-          >
-            <BarChart3 size={12} /> Bars
-          </button>
-          <button
-            onClick={() => setChartType('line')}
-            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition ${
-              chartType === 'line' ? 'bg-ink text-cream' : 'text-muted hover:bg-cream'
-            }`}
-          >
-            <TrendingUp size={12} /> Trend
-          </button>
-        </div>
+      <div className="bg-white border border-line rounded-xl p-1 flex">
+        <button
+          onClick={() => setPeriod('monthly')}
+          className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition ${
+            period === 'monthly' ? 'bg-ink text-cream' : 'text-muted hover:bg-cream'
+          }`}
+        >
+          <Calendar size={12} /> Monthly
+        </button>
+        <button
+          onClick={() => setPeriod('quarterly')}
+          className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition ${
+            period === 'quarterly' ? 'bg-ink text-cream' : 'text-muted hover:bg-cream'
+          }`}
+        >
+          <Calendar size={12} /> Quarterly
+        </button>
       </div>
 
       <div className="bg-white border border-line rounded-xl p-5">
@@ -305,58 +289,37 @@ export default function Dashboard({ sales, accounts, settings }) {
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={260}>
-            {chartType === 'bar' ? (
-              <BarChart data={chartData} margin={{ top: 28, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e7e5e0" vertical={false} />
-                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#57534e' }} />
-                <YAxis
-                  axisLine={false} tickLine={false}
-                  tick={{ fontSize: 10, fill: '#a8a29e' }}
-                  tickFormatter={(v) => {
-                    if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`
-                    if (v >= 1_000) return `${v / 1_000}k`
-                    return v
+            <BarChart data={chartData} margin={{ top: 28, right: 8, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e7e5e0" vertical={false} />
+              <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#57534e' }} />
+              <YAxis
+                axisLine={false} tickLine={false}
+                tick={{ fontSize: 10, fill: '#a8a29e' }}
+                tickFormatter={(v) => {
+                  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`
+                  if (v >= 1_000) return `${v / 1_000}k`
+                  return v
+                }}
+              />
+              <Tooltip
+                cursor={{ fill: '#fefce8' }}
+                contentStyle={{ background: '#0a0a0f', border: 'none', borderRadius: 8, fontSize: 12, color: '#fafaf7' }}
+                formatter={(v) => fmt(v)}
+              />
+              <Bar dataKey="value" fill="#d4af37" radius={[6, 6, 0, 0]}>
+                <LabelList
+                  dataKey="value"
+                  position="top"
+                  formatter={(v) => {
+                    if (!v || v <= 0) return ''
+                    if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`
+                    if (v >= 1_000) return `$${(v / 1_000).toFixed(1)}k`
+                    return `$${v.toFixed(0)}`
                   }}
+                  style={{ fontSize: period === 'monthly' ? 9 : 11, fill: '#0a0a0f', fontWeight: 600 }}
                 />
-                <Tooltip
-                  cursor={{ fill: '#fefce8' }}
-                  contentStyle={{ background: '#0a0a0f', border: 'none', borderRadius: 8, fontSize: 12, color: '#fafaf7' }}
-                  formatter={(v) => fmt(v)}
-                />
-                <Bar dataKey="value" fill="#d4af37" radius={[6, 6, 0, 0]}>
-                  <LabelList
-                    dataKey="value"
-                    position="top"
-                    formatter={(v) => {
-                      if (!v || v <= 0) return ''
-                      if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`
-                      if (v >= 1_000) return `$${(v / 1_000).toFixed(1)}k`
-                      return `$${v.toFixed(0)}`
-                    }}
-                    style={{ fontSize: period === 'monthly' ? 9 : 11, fill: '#0a0a0f', fontWeight: 600 }}
-                  />
-                </Bar>
-              </BarChart>
-            ) : (
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e7e5e0" vertical={false} />
-                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#57534e' }} />
-                <YAxis
-                  axisLine={false} tickLine={false}
-                  tick={{ fontSize: 10, fill: '#a8a29e' }}
-                  tickFormatter={(v) => {
-                    if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`
-                    if (v >= 1_000) return `${v / 1_000}k`
-                    return v
-                  }}
-                />
-                <Tooltip
-                  contentStyle={{ background: '#0a0a0f', border: 'none', borderRadius: 8, fontSize: 12, color: '#fafaf7' }}
-                  formatter={(v) => fmt(v)}
-                />
-                <Line type="monotone" dataKey="value" stroke="#d4af37" strokeWidth={2.5} dot={{ fill: '#d4af37', r: 5 }} activeDot={{ r: 7 }} />
-              </LineChart>
-            )}
+              </Bar>
+            </BarChart>
           </ResponsiveContainer>
         )}
       </div>
@@ -545,29 +508,17 @@ export default function Dashboard({ sales, accounts, settings }) {
         })}
       </div>
       )}
-
-      {stats.pipeline.length > 0 && (
-        <div className="bg-white border border-line rounded-xl p-5">
-          <h3 className="font-display text-base font-medium mb-4">Active Pipeline</h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <PieChart>
-              <Pie data={stats.pipeline} innerRadius={50} outerRadius={80} paddingAngle={2} dataKey="value">
-                {stats.pipeline.map((entry) => (
-                  <Cell key={entry.status} fill={STATUS_COLORS[entry.status]?.color || '#a8a29e'} />
-                ))}
-              </Pie>
-              <Tooltip contentStyle={{ background: '#0a0a0f', border: 'none', borderRadius: 8, fontSize: 12, color: '#fafaf7' }} />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      )}
     </div>
   )
 }
 
-function KpiCard({ icon, label, value, suffix }) {
+function KpiCard({ icon, label, value, suffix, onClick }) {
+  const interactive = !!onClick
   return (
-    <div className="bg-white border border-line rounded-xl p-4">
+    <div
+      onClick={onClick}
+      className={`bg-white border border-line rounded-xl p-4 ${interactive ? 'cursor-pointer hover:border-gold/40 hover:bg-gold-soft/30 transition' : ''}`}
+    >
       <div className="flex items-center gap-1.5 text-subtle mb-2">
         {icon}
         <span className="text-[10px] uppercase tracking-wider">{label}</span>
