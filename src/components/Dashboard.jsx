@@ -55,11 +55,10 @@ const PIPELINE_LABELS = {
   cancelled: 'Cancelled',
 }
 
-export default function Dashboard({ sales, accounts, settings, setActiveTab }) {
+export default function Dashboard({ sales, accounts, settings, setActiveTab, goToSales }) {
   const [year, setYear] = useState(new Date().getFullYear())
   const [dateSource, setDateSource] = useState('contract_date')
   const [period, setPeriod] = useState('monthly') // 'monthly' | 'quarterly'
-  const [metric, setMetric] = useState('commission')
   const [expandedQuarters, setExpandedQuarters] = useState({})
   const [expandedMonths, setExpandedMonths] = useState({})
 
@@ -83,87 +82,68 @@ export default function Dashboard({ sales, accounts, settings, setActiveTab }) {
     const ytdCommission = yearSales.reduce((sum, s) => sum + Number(s.commission_amount || 0), 0)
     const ytdVolume = yearSales.reduce((sum, s) => sum + Number(s.sale_price || 0), 0)
 
-    const commissionGoal = Number(settings.annual_goal) || 180000
     const volumeGoal = Number(settings.annual_sales_volume_goal) || 10000000
-
-    const commissionPct = Math.min(100, (ytdCommission / commissionGoal) * 100)
     const volumePct = Math.min(100, (ytdVolume / volumeGoal) * 100)
 
     const quarters = {
-      Q1: { sales: [], commission: 0, volume: 0 },
-      Q2: { sales: [], commission: 0, volume: 0 },
-      Q3: { sales: [], commission: 0, volume: 0 },
-      Q4: { sales: [], commission: 0, volume: 0 },
+      Q1: { sales: [], volume: 0, commission: 0 },
+      Q2: { sales: [], volume: 0, commission: 0 },
+      Q3: { sales: [], volume: 0, commission: 0 },
+      Q4: { sales: [], volume: 0, commission: 0 },
     }
     const months = Array.from({ length: 12 }, (_, i) => ({
       idx: i,
       label: new Date(2000, i, 1).toLocaleString('en', { month: 'short' }),
       full: new Date(2000, i, 1).toLocaleString('en', { month: 'long' }),
-      sales: [], commission: 0, volume: 0,
+      sales: [], volume: 0, commission: 0,
     }))
     yearSales.forEach((s) => {
       const m = new Date(s[dateSource]).getMonth()
       const q = m < 3 ? 'Q1' : m < 6 ? 'Q2' : m < 9 ? 'Q3' : 'Q4'
       quarters[q].sales.push(s)
-      quarters[q].commission += Number(s.commission_amount || 0)
       quarters[q].volume += Number(s.sale_price || 0)
+      quarters[q].commission += Number(s.commission_amount || 0)
       months[m].sales.push(s)
-      months[m].commission += Number(s.commission_amount || 0)
       months[m].volume += Number(s.sale_price || 0)
+      months[m].commission += Number(s.commission_amount || 0)
     })
-
-    const pipelineCounts = {}
-    sales.forEach((s) => {
-      if (s.status === 'cancelled') return
-      // Normalize legacy statuses
-      let key = s.status
-      if (['pending_earnest', 'secured', 'under_construction'].includes(key)) key = 'under_contract'
-      if (key === 'paid') key = 'closed'
-      pipelineCounts[key] = (pipelineCounts[key] || 0) + 1
-    })
-    const pipeline = Object.entries(pipelineCounts).map(([status, count]) => ({
-      name: PIPELINE_LABELS[status], value: count, status,
-    }))
 
     const netWorth = accounts.reduce((sum, a) => {
       const sign = a.type === 'credit' ? -1 : 1
       return sum + sign * Number(a.balance || 0)
     }, 0)
 
-    const avgCommission = yearSales.length ? ytdCommission / yearSales.length : 0
     const avgVolume = yearSales.length ? ytdVolume / yearSales.length : 0
-    const monthNow = new Date().getMonth() + 1
-    const commissionPace = monthNow > 0 ? (ytdCommission / monthNow) * 12 : 0
-    const volumePace = monthNow > 0 ? (ytdVolume / monthNow) * 12 : 0
 
     return {
       yearSales, ytdCommission, ytdVolume,
-      commissionGoal, volumeGoal, commissionPct, volumePct,
-      quarters, months, pipeline, netWorth,
-      avgCommission, avgVolume, commissionPace, volumePace,
+      volumeGoal, volumePct,
+      quarters, months, netWorth, avgVolume,
     }
   }, [sales, accounts, settings, dateSource, year])
 
   const chartData = period === 'monthly'
     ? stats.months.map((m) => ({
         label: m.label,
-        value: metric === 'commission' ? m.commission : m.volume,
+        month: m.idx,
+        value: m.volume,
         sales: m.sales.length,
       }))
     : ['Q1', 'Q2', 'Q3', 'Q4'].map((q) => ({
         label: q,
-        value: metric === 'commission' ? stats.quarters[q].commission : stats.quarters[q].volume,
+        quarter: q,
+        value: stats.quarters[q].volume,
         sales: stats.quarters[q].sales.length,
       }))
 
-  const heroValue = metric === 'commission' ? stats.ytdCommission : stats.ytdVolume
-  const heroGoal = metric === 'commission' ? stats.commissionGoal : stats.volumeGoal
-  const heroPct = metric === 'commission' ? stats.commissionPct : stats.volumePct
-  const heroPace = metric === 'commission' ? stats.commissionPace : stats.volumePace
-  const heroAvg = metric === 'commission' ? stats.avgCommission : stats.avgVolume
-
   const toggleQuarter = (q) => setExpandedQuarters((p) => ({ ...p, [q]: !p[q] }))
   const toggleMonth = (k) => setExpandedMonths((p) => ({ ...p, [k]: !p[k] }))
+
+  const handleBarClick = (data) => {
+    if (period !== 'monthly') return
+    if (!data || !data.sales || !goToSales) return
+    goToSales({ year, month: data.month, mode: 'contract' })
+  }
 
   // Weeks left in the year (auto-updates with system date)
   const weeksLeft = useMemo(() => {
@@ -192,48 +172,29 @@ export default function Dashboard({ sales, accounts, settings, setActiveTab }) {
         </select>
       </div>
 
-      <div className="bg-white border border-line rounded-xl p-1 flex">
-        <button
-          onClick={() => setMetric('commission')}
-          className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition ${
-            metric === 'commission' ? 'bg-ink text-cream' : 'text-muted hover:bg-cream'
-          }`}
-        >
-          Commission
-        </button>
-        <button
-          onClick={() => setMetric('volume')}
-          className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition ${
-            metric === 'volume' ? 'bg-ink text-cream' : 'text-muted hover:bg-cream'
-          }`}
-        >
-          Sales Volume
-        </button>
-      </div>
-
       <div className="bg-ink text-cream rounded-2xl p-6 md:p-8">
         <div className="flex items-baseline justify-between mb-1">
           <span className="text-xs tracking-widest text-gold uppercase">
-            YTD {metric === 'volume' ? 'Sales Volume' : 'Commission'}
+            YTD Sales Volume
           </span>
           <span className="text-xs text-cream/60">{year} · {weeksLeft} {weeksLeft === 1 ? 'week' : 'weeks'} left</span>
         </div>
         <div className="font-display text-5xl md:text-6xl font-medium tracking-tight">
-          {metric === 'volume' ? fmtCompact(heroValue) : fmt(heroValue)}
+          {fmtCompact(stats.ytdVolume)}
         </div>
         <div className="mt-5">
           <div className="flex items-baseline justify-between mb-2">
             <span className="text-xs text-cream/60">
-              Goal: {metric === 'volume' ? fmtCompact(heroGoal) : fmt(heroGoal)}
+              Goal: {fmtCompact(stats.volumeGoal)}
             </span>
             <span className="text-xs font-medium text-gold">
-              {heroPct.toFixed(1)}%
+              {stats.volumePct.toFixed(1)}%
             </span>
           </div>
           <div className="h-1.5 bg-cream/10 rounded-full overflow-hidden">
             <div
               className="h-full bg-gold transition-all duration-500"
-              style={{ width: `${heroPct}%` }}
+              style={{ width: `${stats.volumePct}%` }}
             />
           </div>
         </div>
@@ -249,8 +210,8 @@ export default function Dashboard({ sales, accounts, settings, setActiveTab }) {
         />
         <KpiCard
           icon={<DollarSign size={14} />}
-          label={metric === 'volume' ? 'Avg Price' : 'Avg Commission'}
-          value={metric === 'volume' ? fmtCompact(heroAvg) : fmt(heroAvg)}
+          label="Avg Price"
+          value={fmtCompact(stats.avgVolume)}
         />
         <KpiCard
           icon={<Target size={14} />}
@@ -280,9 +241,16 @@ export default function Dashboard({ sales, accounts, settings, setActiveTab }) {
       </div>
 
       <div className="bg-white border border-line rounded-xl p-5">
-        <h3 className="font-display text-base font-medium mb-4">
-          {period === 'monthly' ? 'Monthly' : 'Quarterly'} {metric === 'volume' ? 'Sales Volume' : 'Commission'}
-        </h3>
+        <div className="flex items-baseline justify-between mb-4">
+          <h3 className="font-display text-base font-medium">
+            {period === 'monthly' ? 'Monthly' : 'Quarterly'} Sales Volume
+          </h3>
+          {period === 'monthly' && stats.yearSales.length > 0 && (
+            <span className="text-[10px] text-subtle uppercase tracking-wider">
+              Click a bar to view sales
+            </span>
+          )}
+        </div>
         {stats.yearSales.length === 0 ? (
           <div className="h-[220px] flex items-center justify-center text-xs text-subtle">
             No sales for {year} yet
@@ -303,10 +271,28 @@ export default function Dashboard({ sales, accounts, settings, setActiveTab }) {
               />
               <Tooltip
                 cursor={{ fill: '#fefce8' }}
-                contentStyle={{ background: '#0a0a0f', border: 'none', borderRadius: 8, fontSize: 12, color: '#fafaf7' }}
-                formatter={(v) => fmt(v)}
+                content={({ active, payload }) => {
+                  if (!active || !payload || !payload.length) return null
+                  const d = payload[0].payload
+                  if (!d.value) return null
+                  return (
+                    <div className="bg-ink text-cream px-3 py-2 rounded-lg shadow-lg text-xs">
+                      <div className="font-medium">{d.label}</div>
+                      <div className="font-display text-base text-gold mt-0.5">{fmt(d.value)}</div>
+                      <div className="text-[10px] text-cream/60 mt-1">
+                        {d.sales} {d.sales === 1 ? 'sale' : 'sales'}{period === 'monthly' ? ' · click to view' : ''}
+                      </div>
+                    </div>
+                  )
+                }}
               />
-              <Bar dataKey="value" fill="#d4af37" radius={[6, 6, 0, 0]}>
+              <Bar
+                dataKey="value"
+                fill="#d4af37"
+                radius={[6, 6, 0, 0]}
+                cursor={period === 'monthly' ? 'pointer' : 'default'}
+                onClick={handleBarClick}
+              >
                 <LabelList
                   dataKey="value"
                   position="top"
@@ -330,7 +316,6 @@ export default function Dashboard({ sales, accounts, settings, setActiveTab }) {
             if (m.sales.length === 0) return null
             const monthKey = `M-${m.idx}`
             const isExpanded = expandedMonths[monthKey]
-            const monthValue = metric === 'commission' ? m.commission : m.volume
             return (
               <div key={m.idx} className="bg-white border border-line rounded-xl overflow-hidden">
                 <button
@@ -348,10 +333,10 @@ export default function Dashboard({ sales, accounts, settings, setActiveTab }) {
                   </div>
                   <div className="text-right">
                     <div className="font-display text-lg font-medium text-ink">
-                      {metric === 'volume' ? fmtCompact(monthValue) : fmt(monthValue)}
+                      {fmtCompact(m.volume)}
                     </div>
                     <div className="text-[10px] text-subtle uppercase tracking-wider">
-                      {metric === 'commission' ? `${fmtCompact(m.volume)} vol` : `${fmt(m.commission)} comm`}
+                      {fmt(m.commission)} comm
                     </div>
                   </div>
                 </button>
@@ -403,8 +388,6 @@ export default function Dashboard({ sales, accounts, settings, setActiveTab }) {
             sales: data.sales.filter((s) => new Date(s[dateSource]).getMonth() === m),
           }))
 
-          const quarterValue = metric === 'commission' ? data.commission : data.volume
-
           return (
             <div key={q} className="bg-white border border-line rounded-xl overflow-hidden">
               <button
@@ -422,11 +405,11 @@ export default function Dashboard({ sales, accounts, settings, setActiveTab }) {
                 </div>
                 <div className="text-right">
                   <div className="font-display text-lg font-medium text-ink">
-                    {metric === 'volume' ? fmtCompact(quarterValue) : fmt(quarterValue)}
+                    {fmtCompact(data.volume)}
                   </div>
                   {data.sales.length > 0 && (
                     <div className="text-[10px] text-subtle uppercase tracking-wider">
-                      {metric === 'commission' ? `${fmtCompact(data.volume)} vol` : `${fmt(data.commission)} comm`}
+                      {fmt(data.commission)} comm
                     </div>
                   )}
                 </div>
@@ -441,9 +424,7 @@ export default function Dashboard({ sales, accounts, settings, setActiveTab }) {
                       if (monthSales.length === 0) return null
                       const monthKey = `${q}-${month}`
                       const monthExpanded = expandedMonths[monthKey]
-                      const monthValue = metric === 'commission'
-                        ? monthSales.reduce((sum, s) => sum + Number(s.commission_amount || 0), 0)
-                        : monthSales.reduce((sum, s) => sum + Number(s.sale_price || 0), 0)
+                      const monthValue = monthSales.reduce((sum, s) => sum + Number(s.sale_price || 0), 0)
 
                       return (
                         <div key={month} className="border-b border-line last:border-b-0">
@@ -461,7 +442,7 @@ export default function Dashboard({ sales, accounts, settings, setActiveTab }) {
                               </div>
                             </div>
                             <div className="text-sm font-medium text-ink">
-                              {metric === 'volume' ? fmtCompact(monthValue) : fmt(monthValue)}
+                              {fmtCompact(monthValue)}
                             </div>
                           </button>
 
