@@ -286,18 +286,18 @@ export default function MoMoney({
 
       {view === 'income' && (
         <>
-          {/* Hero: YTD Collected (primary), Upcoming (secondary) */}
+          {/* Hero: Upcoming (primary), YTD Collected (secondary) */}
           <div className="bg-ink text-cream rounded-2xl p-6">
             <div className="text-xs uppercase tracking-widest text-gold mb-1">
-              YTD Commission Collected
+              Upcoming Commission
             </div>
-            <div className="font-display text-4xl md:text-5xl font-medium tracking-tight">
-              {fmt(collectedTotal)}
+            <div className="font-display text-4xl md:text-5xl font-medium tracking-tight text-gold">
+              {fmt(upcomingTotal)}
             </div>
             <div className="mt-4 pt-4 border-t border-cream/10 flex items-baseline justify-between flex-wrap gap-2">
               <div>
-                <div className="text-[10px] text-cream/60 uppercase tracking-widest">Upcoming</div>
-                <div className="font-display text-xl font-medium text-gold">{fmt(upcomingTotal)}</div>
+                <div className="text-[10px] text-cream/60 uppercase tracking-widest">YTD Collected</div>
+                <div className="font-display text-xl font-medium">{fmt(collectedTotal)}</div>
               </div>
               <div className="text-right">
                 <div className="text-[10px] text-cream/60 uppercase tracking-widest">Expected</div>
