@@ -23,7 +23,7 @@ const TABS = [
 export default function App() {
   const { user, loading: authLoading } = useAuth()
   const [activeTab, setActiveTab] = useState('dashboard')
-  const [salesFilter, setSalesFilter] = useState(null) // { year, month, type: 'upfront'|'closing' } | null
+  const [salesFilter, setSalesFilter] = useState(null) // { year, month, mode: 'contract'|'payment' } | null
 
   if (authLoading) {
     return (
@@ -51,6 +51,11 @@ function AuthedApp({ user, activeTab, setActiveTab, salesFilter, setSalesFilter 
   const { accounts, addAccount, updateAccount, deleteAccount } = useAccounts(user)
   const { transactions, addTransaction, deleteTransaction } = useTransactions(user)
   const { settings, updateSettings } = useSettings(user)
+
+  const goToSales = (filter) => {
+    setSalesFilter(filter)
+    setActiveTab('sales')
+  }
 
   return (
     <div className="min-h-screen bg-cream text-ink pb-24 md:pb-6">
@@ -103,7 +108,13 @@ function AuthedApp({ user, activeTab, setActiveTab, salesFilter, setSalesFilter 
         ) : (
           <>
             {activeTab === 'dashboard' && (
-              <Dashboard sales={sales} accounts={accounts} settings={settings} setActiveTab={setActiveTab} />
+              <Dashboard
+                sales={sales}
+                accounts={accounts}
+                settings={settings}
+                setActiveTab={setActiveTab}
+                goToSales={goToSales}
+              />
             )}
             {activeTab === 'sales' && (
               <Sales
@@ -126,10 +137,7 @@ function AuthedApp({ user, activeTab, setActiveTab, salesFilter, setSalesFilter 
                 transactions={transactions}
                 addTransaction={addTransaction}
                 deleteTransaction={deleteTransaction}
-                goToSales={(filter) => {
-                  setSalesFilter(filter)
-                  setActiveTab('sales')
-                }}
+                goToSales={goToSales}
               />
             )}
             {activeTab === 'settings' && (
