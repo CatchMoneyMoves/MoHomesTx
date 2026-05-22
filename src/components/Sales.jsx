@@ -106,37 +106,45 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
     (Number(form.commission_rate) / 100) *
     (Number(form.split) / 100)
 
-  // Filter visible sales — hide cancelled by default
-  // If salesFilter is set, only show sales that have a payment in the filter month
-  // Filter month logic: payment in month X = contract OR closing date in month X-1
+  // Filter mode: 'contract' (filter by contract_date) or 'payment' (filter by payment month, default)
+  const isContractMode = salesFilter?.mode === 'contract'
+
   const filterMatchesSale = (sale) => {
     if (!salesFilter) return true
-    const matches = []
-    // Payment month X means contract was month X-1
+
+    // Contract mode: filter by contract_date in the specified month
+    if (isContractMode) {
+      if (!sale.contract_date) return false
+      const cd = new Date(sale.contract_date)
+      return cd.getFullYear() === salesFilter.year && cd.getMonth() === salesFilter.month
+    }
+
+    // Payment mode (default): match if a payment lands in filter month
+    // Perry pays 40% upfront on 7th of month AFTER contract, 60% on 7th of month AFTER closing
     if (sale.contract_date) {
       const cd = new Date(sale.contract_date)
       const payMonth = new Date(cd.getFullYear(), cd.getMonth() + 1, 7)
       if (payMonth.getFullYear() === salesFilter.year && payMonth.getMonth() === salesFilter.month) {
-        matches.push('upfront')
+        return true
       }
     }
     if (sale.closing_date) {
       const cd = new Date(sale.closing_date)
       const payMonth = new Date(cd.getFullYear(), cd.getMonth() + 1, 7)
       if (payMonth.getFullYear() === salesFilter.year && payMonth.getMonth() === salesFilter.month) {
-        matches.push('closing')
+        return true
       }
     }
-    return matches.length > 0
+    return false
   }
 
   const visibleSales = sales
     .filter((s) => s.status !== 'cancelled')
     .filter(filterMatchesSale)
 
-  // For each filtered sale, what payment type triggered the match? (upfront / closing)
+  // Only show payment-type badges in payment mode
   const paymentTypeForSale = (sale) => {
-    if (!salesFilter) return null
+    if (!salesFilter || isContractMode) return null
     if (sale.contract_date) {
       const cd = new Date(sale.contract_date)
       const payMonth = new Date(cd.getFullYear(), cd.getMonth() + 1, 7)
@@ -158,6 +166,20 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
     ? new Date(salesFilter.year, salesFilter.month, 1).toLocaleString('en', { month: 'long', year: 'numeric' })
     : null
 
+  const filterBannerLabel = isContractMode
+    ? 'Contracted in'
+    : 'Filtered by payment month'
+
+  const filterSubtitleLabel = salesFilter
+    ? (isContractMode ? `contracted in ${filterMonthLabel}` : `paying in ${filterMonthLabel}`)
+    : 'total'
+
+  const emptyStateLabel = salesFilter
+    ? (isContractMode
+        ? `No sales contracted in ${filterMonthLabel}.`
+        : `No sales paying out in ${filterMonthLabel}.`)
+    : 'No sales yet. Hit "Add Sale" to log your first.'
+
   // Normalize legacy status for display
   const getStatusDisplay = (status) => {
     if (['pending_earnest', 'secured', 'under_construction'].includes(status)) {
@@ -174,7 +196,7 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
       <div className="flex items-center justify-between">
         <div>
           <h2 className="font-display text-2xl font-medium">Sales</h2>
-          <p className="text-sm text-muted">{visibleSales.length} {salesFilter ? `paying in ${filterMonthLabel}` : 'total'}</p>
+          <p className="text-sm text-muted">{visibleSales.length} {filterSubtitleLabel}</p>
         </div>
         <button
           onClick={openAdd}
@@ -187,7 +209,7 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
       {salesFilter && (
         <div className="flex items-center justify-between bg-gold-soft border border-gold/30 rounded-xl px-4 py-3">
           <div>
-            <div className="text-[10px] uppercase tracking-widest text-gold-dark font-medium">Filtered by payment month</div>
+            <div className="text-[10px] uppercase tracking-widest text-gold-dark font-medium">{filterBannerLabel}</div>
             <div className="text-sm font-medium text-ink">{filterMonthLabel}</div>
           </div>
           <button
@@ -201,9 +223,7 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
 
       {visibleSales.length === 0 ? (
         <div className="bg-white border border-line rounded-xl p-10 text-center">
-          <p className="text-sm text-muted">
-            {salesFilter ? `No sales paying out in ${filterMonthLabel}.` : 'No sales yet. Hit "Add Sale" to log your first.'}
-          </p>
+          <p className="text-sm text-muted">{emptyStateLabel}</p>
         </div>
       ) : (
         <div className="space-y-2">
