@@ -136,12 +136,16 @@ function AuthedApp({ user, activeTab, setActiveTab, salesFilter, setSalesFilter 
       {/* Desktop header */}
       <header className="hidden md:block border-b border-line bg-cream/80 backdrop-blur sticky top-0 z-30">
         <div className="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => handleTabChange('dashboard')}
+            className="flex items-center gap-2.5 hover:opacity-70 transition"
+            aria-label="Go to dashboard"
+          >
             <div className="w-7 h-7 rounded-md bg-ink flex items-center justify-center">
               <span className="font-display text-lg font-semibold text-gold leading-none -mt-0.5">M</span>
             </div>
-            <span className="font-display text-base font-medium tracking-tight">MoHomes Tracker</span>
-          </div>
+            <span className="font-display text-base font-medium tracking-tight">MoHomesTx</span>
+          </button>
           <nav className="flex items-center gap-1">
             {TABS.map((t) => {
               const Icon = t.icon
@@ -165,12 +169,16 @@ function AuthedApp({ user, activeTab, setActiveTab, salesFilter, setSalesFilter 
       {/* Mobile header */}
       <header className="md:hidden border-b border-line bg-cream sticky top-0 z-30 safe-top">
         <div className="px-5 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <button
+            onClick={() => handleTabChange('dashboard')}
+            className="flex items-center gap-2 hover:opacity-70 transition"
+            aria-label="Go to dashboard"
+          >
             <div className="w-7 h-7 rounded-md bg-ink flex items-center justify-center">
               <span className="font-display text-lg font-semibold text-gold leading-none -mt-0.5">M</span>
             </div>
-            <span className="font-display text-base font-medium tracking-tight">MoHomes Tracker</span>
-          </div>
+            <span className="font-display text-base font-medium tracking-tight">MoHomesTx</span>
+          </button>
         </div>
       </header>
 
