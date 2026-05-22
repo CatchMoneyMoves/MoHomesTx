@@ -125,12 +125,14 @@ export default function MoMoney({
   const collectedTotal = past.reduce((sum, p) => sum + p.amount, 0)
   const upcomingTotal = upcoming.reduce((sum, p) => sum + p.amount, 0)
 
-  // Chart data — next 12 months from current month
+  // Chart data — Jan of current year through Dec next year (covers past collected + future forecast)
   const chartData = useMemo(() => {
     const now = new Date()
+    const startYear = now.getFullYear()
     const months = []
-    for (let i = 0; i < 12; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() + i, 1)
+    // 24 months: Jan current year through Dec next year
+    for (let i = 0; i < 24; i++) {
+      const d = new Date(startYear, i, 1)
       const key = `${d.getFullYear()}-${d.getMonth()}`
       const bucket = monthlyGroups.find((m) => `${m.year}-${m.month}` === key)
       months.push({
@@ -141,10 +143,14 @@ export default function MoMoney({
         count: bucket?.payments.length || 0,
       })
     }
+    // Trim trailing empty months so chart isn't full of zeros
+    while (months.length > 12 && months[months.length - 1].amount === 0) {
+      months.pop()
+    }
     return months
   }, [monthlyGroups])
 
-  // 6-month cash flow chart from real transactions
+  // 6-month cash flow chart from real transactions + virtual commission income
   const cashFlow = useMemo(() => {
     const months = []
     const now = new Date()
@@ -165,8 +171,48 @@ export default function MoMoney({
         else m.expense += Number(t.amount)
       }
     })
+    // Add virtual commission income (past payments only)
+    past.forEach((p) => {
+      const key = `${p.date.getFullYear()}-${p.date.getMonth()}`
+      const m = months.find((x) => x.key === key)
+      if (m) {
+        // Dedupe — only add virtual if no matching real transaction exists
+        const realMatch = transactions.find((t) =>
+          t.type === 'income' &&
+          Math.abs(Number(t.amount) - p.amount) < 1 &&
+          Math.abs(new Date(t.date) - p.date) < 7 * 24 * 60 * 60 * 1000
+        )
+        if (!realMatch) m.income += p.amount
+      }
+    })
     return months
-  }, [transactions])
+  }, [transactions, past])
+
+  // Merged transaction list: real DB rows + virtual commission income from past payments
+  // Dedupes if a real transaction already exists for the same payment
+  const mergedTransactions = useMemo(() => {
+    const realTxns = transactions.map((t) => ({ ...t, _virtual: false }))
+    const virtualTxns = past
+      .filter((p) => {
+        // Only show virtual if no real transaction matches (amount within $1, date within 7 days)
+        const match = transactions.find((t) =>
+          t.type === 'income' &&
+          Math.abs(Number(t.amount) - p.amount) < 1 &&
+          Math.abs(new Date(t.date) - p.date) < 7 * 24 * 60 * 60 * 1000
+        )
+        return !match
+      })
+      .map((p) => ({
+        id: `commission-${p.saleId}-${p.type}`,
+        type: 'income',
+        amount: p.amount,
+        category: 'Commission',
+        description: `${p.buyerName} — ${p.percent}% ${p.type}`,
+        date: p.date.toISOString().slice(0, 10),
+        _virtual: true,
+      }))
+    return [...realTxns, ...virtualTxns].sort((a, b) => new Date(b.date) - new Date(a.date))
+  }, [transactions, past])
 
   const openAddAccount = () => {
     setAccountForm({ name: '', type: 'checking', balance: 0 })
@@ -240,23 +286,30 @@ export default function MoMoney({
 
       {view === 'income' && (
         <>
-          {/* Hero: Upcoming income */}
+          {/* Hero: YTD Collected (primary), Upcoming (secondary) */}
           <div className="bg-ink text-cream rounded-2xl p-6">
             <div className="text-xs uppercase tracking-widest text-gold mb-1">
-              Upcoming Commission
+              YTD Commission Collected
             </div>
             <div className="font-display text-4xl md:text-5xl font-medium tracking-tight">
-              {fmt(upcomingTotal)}
+              {fmt(collectedTotal)}
             </div>
-            <div className="mt-3 text-xs text-cream/60">
-              {upcoming.length} expected payment{upcoming.length !== 1 ? 's' : ''} · Collected so far: <span className="text-cream font-medium">{fmt(collectedTotal)}</span>
+            <div className="mt-4 pt-4 border-t border-cream/10 flex items-baseline justify-between flex-wrap gap-2">
+              <div>
+                <div className="text-[10px] text-cream/60 uppercase tracking-widest">Upcoming</div>
+                <div className="font-display text-xl font-medium text-gold">{fmt(upcomingTotal)}</div>
+              </div>
+              <div className="text-right">
+                <div className="text-[10px] text-cream/60 uppercase tracking-widest">Expected</div>
+                <div className="text-sm font-medium">{upcoming.length} payment{upcoming.length !== 1 ? 's' : ''}</div>
+              </div>
             </div>
           </div>
 
           {/* Forecast chart */}
           <div className="bg-white border border-line rounded-xl p-5">
             <div className="flex items-baseline justify-between mb-4">
-              <h3 className="font-display text-base font-medium">Next 12 Months</h3>
+              <h3 className="font-display text-base font-medium">Commission Timeline</h3>
               <span className="text-[10px] text-subtle uppercase tracking-wider">
                 Perry pays 7th of month
               </span>
@@ -472,7 +525,7 @@ export default function MoMoney({
           </div>
 
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <h3 className="font-display text-base font-medium">{transactions.length} Transactions</h3>
+            <h3 className="font-display text-base font-medium">{mergedTransactions.length} Transactions</h3>
             <div className="flex gap-2">
               <button
                 onClick={() => setShowImport(true)}
@@ -489,14 +542,14 @@ export default function MoMoney({
             </div>
           </div>
 
-          {transactions.length === 0 ? (
+          {mergedTransactions.length === 0 ? (
             <div className="bg-white border border-line rounded-xl p-10 text-center">
               <p className="text-sm text-muted">No transactions yet.</p>
             </div>
           ) : (
             <div className="space-y-1.5">
-              {transactions.map((t) => (
-                <div key={t.id} className="bg-white border border-line rounded-xl p-3 flex items-center gap-3 hover:border-gold/40 transition">
+              {mergedTransactions.map((t) => (
+                <div key={t.id} className={`bg-white border rounded-xl p-3 flex items-center gap-3 hover:border-gold/40 transition ${t._virtual ? 'border-gold/30 bg-gold-soft/40' : 'border-line'}`}>
                   <div
                     className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
                       t.type === 'income' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
@@ -505,7 +558,14 @@ export default function MoMoney({
                     {t.type === 'income' ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">{t.description || t.category}</div>
+                    <div className="text-sm font-medium truncate flex items-center gap-1.5">
+                      {t.description || t.category}
+                      {t._virtual && (
+                        <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-medium bg-gold text-ink">
+                          Auto
+                        </span>
+                      )}
+                    </div>
                     <div className="text-[11px] text-subtle">
                       {t.category} · {new Date(t.date).toLocaleDateString('en-US', {
                         month: 'short', day: 'numeric', year: 'numeric',
@@ -515,12 +575,16 @@ export default function MoMoney({
                   <div className={`font-medium text-sm ${t.type === 'income' ? 'text-green-700' : 'text-ink'}`}>
                     {t.type === 'income' ? '+' : '−'}{fmt(t.amount)}
                   </div>
-                  <button
-                    onClick={() => { if (confirm('Delete this transaction?')) deleteTransaction(t.id) }}
-                    className="p-1.5 hover:bg-red-50 rounded-lg transition"
-                  >
-                    <Trash2 size={13} className="text-red-600" />
-                  </button>
+                  {!t._virtual ? (
+                    <button
+                      onClick={() => { if (confirm('Delete this transaction?')) deleteTransaction(t.id) }}
+                      className="p-1.5 hover:bg-red-50 rounded-lg transition"
+                    >
+                      <Trash2 size={13} className="text-red-600" />
+                    </button>
+                  ) : (
+                    <div className="w-7" />
+                  )}
                 </div>
               ))}
             </div>
