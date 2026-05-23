@@ -125,6 +125,29 @@ export default function MoMoney({
   const collectedTotal = past.reduce((sum, p) => sum + p.amount, 0)
   const upcomingTotal = upcoming.reduce((sum, p) => sum + p.amount, 0)
 
+  // Group upcoming payments by month for cleaner section-by-section display
+  const upcomingByMonth = useMemo(() => {
+    const groups = {}
+    upcoming.forEach((p) => {
+      const key = `${p.date.getFullYear()}-${p.date.getMonth()}`
+      if (!groups[key]) {
+        groups[key] = {
+          year: p.date.getFullYear(),
+          month: p.date.getMonth(),
+          label: p.date.toLocaleString('en', { month: 'long', year: 'numeric' }),
+          payments: [],
+          total: 0,
+        }
+      }
+      groups[key].payments.push(p)
+      groups[key].total += p.amount
+    })
+    return Object.values(groups).sort((a, b) => {
+      if (a.year !== b.year) return a.year - b.year
+      return a.month - b.month
+    })
+  }, [upcoming])
+
   // Chart data — Jan of current year through Dec next year (covers past collected + future forecast)
   const chartData = useMemo(() => {
     const now = new Date()
@@ -346,33 +369,28 @@ export default function MoMoney({
                     }}
                   />
                   <Bar
-                    dataKey="amount"
-                    radius={[6, 6, 0, 0]}
-                    cursor="pointer"
-                    onClick={(data) => {
-                      if (!data || !data.count || !goToSales) return
-                      goToSales({ year: data.year, month: data.month })
-                    }}
-                  >
-                    <LabelList
-                      dataKey="amount"
-                      position="top"
-                      formatter={(v) => v > 0 ? (v >= 1000 ? `$${(v / 1000).toFixed(1)}k` : `$${v.toFixed(0)}`) : ''}
-                      style={{ fontSize: 10, fill: '#0a0a0f', fontWeight: 600 }}
-                    />
-                    {chartData.map((entry, idx) => {
-                      const now = new Date()
-                      const isFuture = (entry.year > now.getFullYear()) ||
-                        (entry.year === now.getFullYear() && entry.month >= now.getMonth())
-                      return <Cell key={idx} fill={isFuture ? '#d4af37' : '#a8a29e'} />
-                    })}
-                  </Bar>
+                dataKey="amount"
+                fill="#d4af37"
+                radius={[6, 6, 0, 0]}
+                cursor="pointer"
+                onClick={(data) => {
+                  if (!data || !data.count || !goToSales) return
+                  goToSales({ year: data.year, month: data.month })
+                }}
+              >
+                <LabelList
+                  dataKey="amount"
+                  position="top"
+                  formatter={(v) => v > 0 ? (v >= 1000 ? `$${(v / 1000).toFixed(1)}k` : `$${v.toFixed(0)}`) : ''}
+                  style={{ fontSize: 10, fill: '#0a0a0f', fontWeight: 600 }}
+                />
+              </Bar>
                 </BarChart>
               </ResponsiveContainer>
             )}
           </div>
 
-          {/* Payment schedule list */}
+          {/* Payment schedule list — grouped by month */}
           {upcoming.length > 0 && (
             <div className="bg-white border border-line rounded-xl p-5">
               <div className="flex items-baseline justify-between mb-4">
@@ -382,31 +400,40 @@ export default function MoMoney({
                   <div className="font-display text-lg font-medium text-green-700">{fmt(upcomingTotal)}</div>
                 </div>
               </div>
-              <div className="space-y-2">
-                {upcoming.slice(0, 12).map((p, i) => (
-                  <div key={i} className="flex items-center gap-3 p-3 bg-cream rounded-lg">
-                    <div className="w-10 h-10 rounded-lg bg-gold-soft text-gold-dark flex flex-col items-center justify-center shrink-0">
-                      <div className="text-[8px] uppercase tracking-wider leading-none">{p.date.toLocaleString('en', { month: 'short' })}</div>
-                      <div className="text-sm font-display font-medium leading-none mt-0.5">{p.date.getDate()}</div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{p.buyerName}</div>
+              <div className="space-y-5">
+                {upcomingByMonth.map((group) => (
+                  <div key={`${group.year}-${group.month}`}>
+                    <div className="flex items-baseline justify-between mb-2 pb-2 border-b border-line">
+                      <div className="text-xs uppercase tracking-widest text-gold-dark font-medium">
+                        {group.label}
+                      </div>
                       <div className="text-[11px] text-subtle">
-                        {p.percent}% {p.type === 'upfront' ? 'upfront' : 'closing'} · paid {p.date.toLocaleString('en', { month: 'long', year: 'numeric' })}
+                        {group.payments.length} {group.payments.length === 1 ? 'payment' : 'payments'} · <span className="font-medium text-ink">{fmt(group.total)}</span>
                       </div>
                     </div>
-                    <div className="text-right shrink-0">
-                      <div className="font-display text-base font-medium text-green-700">
-                        +{fmt(p.amount)}
-                      </div>
+                    <div className="space-y-2">
+                      {group.payments.map((p, i) => (
+                        <div key={i} className="flex items-center gap-3 p-3 bg-cream rounded-lg">
+                          <div className="w-10 h-10 rounded-lg bg-gold-soft text-gold-dark flex flex-col items-center justify-center shrink-0">
+                            <div className="text-[8px] uppercase tracking-wider leading-none">{p.date.toLocaleString('en', { month: 'short' })}</div>
+                            <div className="text-sm font-display font-medium leading-none mt-0.5">{p.date.getDate()}</div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium truncate">{p.buyerName}</div>
+                            <div className="text-[11px] text-subtle">
+                              {p.percent}% {p.type === 'upfront' ? 'upfront' : 'closing'}
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className="font-display text-base font-medium text-green-700">
+                              +{fmt(p.amount)}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ))}
-                {upcoming.length > 12 && (
-                  <div className="text-center text-[11px] text-subtle py-2">
-                    + {upcoming.length - 12} more payments
-                  </div>
-                )}
               </div>
             </div>
           )}
