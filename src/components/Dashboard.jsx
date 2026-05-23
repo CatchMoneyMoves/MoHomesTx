@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import {
   TrendingUp, Target, Home, DollarSign,
   ChevronDown, ChevronRight, Calendar, BarChart3,
@@ -61,6 +61,15 @@ export default function Dashboard({ sales, accounts, settings, setActiveTab, goT
   const [period, setPeriod] = useState('monthly') // 'monthly' | 'quarterly'
   const [expandedQuarters, setExpandedQuarters] = useState({})
   const [expandedMonths, setExpandedMonths] = useState({})
+  const [isMobile, setIsMobile] = useState(false)
+
+  // Track mobile viewport for compact axis labels (J F M A...)
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   const availableYears = useMemo(() => {
     const years = new Set()
@@ -153,6 +162,12 @@ export default function Dashboard({ sales, accounts, settings, setActiveTab, goT
     const weeks = Math.max(0, Math.ceil(msLeft / (7 * 24 * 60 * 60 * 1000)))
     return weeks
   }, [])
+
+  // X-axis tick formatter — single letters on mobile monthly view, full label otherwise
+  const formatXAxisTick = (value) => {
+    if (isMobile && period === 'monthly') return value.charAt(0)
+    return value
+  }
 
   return (
     <div className="space-y-5">
@@ -259,7 +274,14 @@ export default function Dashboard({ sales, accounts, settings, setActiveTab, goT
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={chartData} margin={{ top: 28, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e7e5e0" vertical={false} />
-              <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#57534e' }} />
+              <XAxis
+                dataKey="label"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 11, fill: '#57534e' }}
+                interval={0}
+                tickFormatter={formatXAxisTick}
+              />
               <YAxis
                 axisLine={false} tickLine={false}
                 tick={{ fontSize: 10, fill: '#a8a29e' }}
