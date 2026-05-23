@@ -38,10 +38,26 @@ function encodeHash(tab, filter) {
   return `#${tab}?${params.toString()}`
 }
 
+// Detect Supabase auth callback hash (magic link, password recovery, oauth)
+// When present, leave the hash alone so supabase-js can consume the tokens
+function isSupabaseAuthHash(hash) {
+  if (!hash) return false
+  return (
+    hash.includes('access_token=') ||
+    hash.includes('type=recovery') ||
+    hash.includes('type=magiclink') ||
+    hash.includes('type=signup') ||
+    hash.includes('error=') ||
+    hash.includes('error_description=')
+  )
+}
+
 // Decode URL hash back to {tab, filter}
 function decodeHash(hash) {
   const raw = (hash || '').replace(/^#/, '')
   if (!raw) return { tab: 'dashboard', filter: null }
+  // If this is a supabase auth callback, don't try to parse it as tab routing
+  if (isSupabaseAuthHash(hash)) return { tab: 'dashboard', filter: null }
   const [tabPart, queryPart] = raw.split('?')
   const tab = VALID_TABS.includes(tabPart) ? tabPart : 'dashboard'
   if (!queryPart) return { tab, filter: null }
@@ -71,6 +87,9 @@ export default function App() {
 
   // Push hash on state change (push history entry so back button works)
   useEffect(() => {
+    // While supabase is consuming auth tokens (magic link, password recovery),
+    // leave the hash alone — otherwise we wipe the tokens before they're processed
+    if (isSupabaseAuthHash(window.location.hash)) return
     const desired = encodeHash(activeTab, salesFilter)
     if (window.location.hash === desired) return
     if (internalNav.current) {
