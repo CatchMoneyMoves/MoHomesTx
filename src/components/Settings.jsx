@@ -1,11 +1,18 @@
 import { useState, useEffect } from 'react'
-import { LogOut, Save } from 'lucide-react'
+import { LogOut, Save, Key } from 'lucide-react'
 import { signOut } from '../lib/auth'
+import { supabase } from '../lib/supabase'
 
 export default function Settings({ settings, updateSettings, user }) {
   const [form, setForm] = useState(settings)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+
+  // Password change state
+  const [passwordForm, setPasswordForm] = useState({ newPassword: '', confirmPassword: '' })
+  const [passwordSaving, setPasswordSaving] = useState(false)
+  const [passwordChanged, setPasswordChanged] = useState(false)
+  const [passwordError, setPasswordError] = useState('')
 
   useEffect(() => {
     setForm(settings)
@@ -25,6 +32,35 @@ export default function Settings({ settings, updateSettings, user }) {
     if (!error) {
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
+    }
+  }
+
+  const handleChangePassword = async () => {
+    setPasswordError('')
+
+    if (!passwordForm.newPassword || !passwordForm.confirmPassword) {
+      setPasswordError('Please fill in both password fields.')
+      return
+    }
+    if (passwordForm.newPassword.length < 6) {
+      setPasswordError('Password must be at least 6 characters.')
+      return
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError('Passwords do not match.')
+      return
+    }
+
+    setPasswordSaving(true)
+    const { error } = await supabase.auth.updateUser({ password: passwordForm.newPassword })
+    setPasswordSaving(false)
+
+    if (error) {
+      setPasswordError(error.message)
+    } else {
+      setPasswordChanged(true)
+      setPasswordForm({ newPassword: '', confirmPassword: '' })
+      setTimeout(() => setPasswordChanged(false), 3000)
     }
   }
 
@@ -92,6 +128,51 @@ export default function Settings({ settings, updateSettings, user }) {
         </button>
       </form>
 
+      {/* Change Password */}
+      <div className="bg-white border border-line rounded-xl p-5 space-y-4">
+        <div>
+          <h3 className="font-display text-base font-medium">Change Password</h3>
+          <p className="text-xs text-muted mt-0.5">Update the password used to sign in</p>
+        </div>
+
+        <Field label="New Password">
+          <input
+            type="password"
+            value={passwordForm.newPassword}
+            onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+            placeholder="At least 6 characters"
+            autoComplete="new-password"
+            className="w-full px-3 py-2.5 bg-cream border border-line rounded-lg text-sm"
+          />
+        </Field>
+
+        <Field label="Confirm New Password">
+          <input
+            type="password"
+            value={passwordForm.confirmPassword}
+            onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+            autoComplete="new-password"
+            className="w-full px-3 py-2.5 bg-cream border border-line rounded-lg text-sm"
+          />
+        </Field>
+
+        {passwordError && (
+          <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
+            {passwordError}
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={handleChangePassword}
+          disabled={passwordSaving}
+          className="w-full py-3 bg-ink text-cream rounded-lg text-sm font-medium hover:bg-ink/90 disabled:opacity-50 transition flex items-center justify-center gap-1.5"
+        >
+          <Key size={14} />
+          {passwordSaving ? 'Updating…' : passwordChanged ? 'Password Updated ✓' : 'Update Password'}
+        </button>
+      </div>
+
       {/* Account actions */}
       <div className="bg-white border border-line rounded-xl p-5 space-y-3">
         <h3 className="font-display text-base font-medium">Account</h3>
@@ -104,7 +185,7 @@ export default function Settings({ settings, updateSettings, user }) {
       </div>
 
       <div className="text-center text-[10px] text-subtle tracking-widest uppercase pt-2">
-        MoHomes Tracker · 🦁 Lion energy
+        MoHomesTx
       </div>
     </div>
   )
