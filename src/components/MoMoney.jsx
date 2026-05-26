@@ -100,6 +100,8 @@ export default function MoMoney({
   const [showTxnForm, setShowTxnForm] = useState(false)
   const [showImport, setShowImport] = useState(false)
   const [editingAccountId, setEditingAccountId] = useState(null)
+  const [projectionMonths, setProjectionMonths] = useState(0) // 0=now, 2=+2mo, 3=+3mo, 6=+6mo
+  const TAX_RATE = 0.25 // 25% reserve for taxes on 1099 commission
   const [accountForm, setAccountForm] = useState({ name: '', type: 'checking', balance: 0 })
   const [txnForm, setTxnForm] = useState({
     type: 'income', amount: '', category: 'Commission',
@@ -147,6 +149,34 @@ export default function MoMoney({
       return a.month - b.month
     })
   }, [upcoming])
+
+  // Accounts projection — current net worth + (incoming commission × 75%) through selected window
+  const projection = useMemo(() => {
+    if (projectionMonths === 0) {
+      return {
+        cutoff: null,
+        payments: [],
+        grossIncoming: 0,
+        taxReserve: 0,
+        netAdded: 0,
+        projectedNetWorth: netWorth,
+      }
+    }
+    const now = new Date()
+    const cutoff = new Date(now.getFullYear(), now.getMonth() + projectionMonths, now.getDate())
+    const inWindow = upcoming.filter((p) => p.date <= cutoff)
+    const gross = inWindow.reduce((sum, p) => sum + p.amount, 0)
+    const taxReserve = gross * TAX_RATE
+    const netAdded = gross - taxReserve
+    return {
+      cutoff,
+      payments: inWindow,
+      grossIncoming: gross,
+      taxReserve,
+      netAdded,
+      projectedNetWorth: netWorth + netAdded,
+    }
+  }, [projectionMonths, upcoming, netWorth])
 
   // Chart data — Jan of current year through Dec next year (covers past collected + future forecast)
   const chartData = useMemo(() => {
@@ -482,6 +512,68 @@ export default function MoMoney({
             <div className="font-display text-4xl md:text-5xl font-medium tracking-tight">{fmt(netWorth)}</div>
             <div className="mt-3 text-xs text-cream/60">{accounts.length} account{accounts.length !== 1 ? 's' : ''}</div>
           </div>
+
+          {/* Projection toggle */}
+          <div className="bg-white border border-line rounded-xl p-1 grid grid-cols-4 gap-1">
+            {[
+              { value: 0, label: 'Now' },
+              { value: 2, label: '+2 mo' },
+              { value: 3, label: '+3 mo' },
+              { value: 6, label: '+6 mo' },
+            ].map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setProjectionMonths(opt.value)}
+                className={`px-3 py-2 rounded-lg text-xs font-medium transition ${
+                  projectionMonths === opt.value ? 'bg-ink text-cream' : 'text-muted hover:bg-cream'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Projection card — only shows when a future window is selected */}
+          {projectionMonths > 0 && (
+            <div className="bg-white border border-line rounded-xl p-5 space-y-4">
+              <div className="flex items-baseline justify-between">
+                <div>
+                  <div className="text-[10px] uppercase tracking-widest text-gold-dark font-medium">
+                    Projected Net Worth
+                  </div>
+                  <div className="text-[11px] text-subtle mt-0.5">
+                    By {projection.cutoff?.toLocaleString('en', { month: 'long', day: 'numeric', year: 'numeric' })}
+                  </div>
+                </div>
+                <div className="font-display text-3xl font-medium text-green-700">
+                  {fmt(projection.projectedNetWorth)}
+                </div>
+              </div>
+
+              <div className="border-t border-line pt-3 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted">Current Net Worth</span>
+                  <span className="font-medium text-ink">{fmt(netWorth)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted">Expected Commission</span>
+                  <span className="font-medium text-green-700">+{fmt(projection.grossIncoming)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted">Tax Reserve (25%)</span>
+                  <span className="font-medium text-red-700">−{fmt(projection.taxReserve)}</span>
+                </div>
+                <div className="flex justify-between pt-2 border-t border-line">
+                  <span className="font-medium text-ink">Net Added</span>
+                  <span className="font-display font-medium text-ink">+{fmt(projection.netAdded)}</span>
+                </div>
+              </div>
+
+              <div className="text-[11px] text-subtle pt-1">
+                Based on {projection.payments.length} expected payment{projection.payments.length !== 1 ? 's' : ''} through the window. Assumes 100% of after-tax commission added to net worth.
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center justify-between">
             <h3 className="font-display text-base font-medium">Accounts</h3>
