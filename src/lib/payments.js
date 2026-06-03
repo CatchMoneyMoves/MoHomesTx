@@ -7,11 +7,15 @@ const PAY_DAY = 7
 
 function nextMonth7th(dateStr) {
   if (!dateStr) return null
-  const d = new Date(dateStr)
-  if (isNaN(d.getTime())) return null
-  // Move to first day of next month, then set day to 7
-  const next = new Date(d.getFullYear(), d.getMonth() + 1, PAY_DAY)
-  return next
+  // Parse as local date (not UTC) to avoid timezone-off-by-one-day bug.
+  // new Date('YYYY-MM-DD') parses as UTC midnight, which in US timezones
+  // rolls back to the previous day — causing the wrong month to be used.
+  // e.g. '2026-07-01' UTC = June 30 in CDT → getMonth() returns June → +1 = July (wrong)
+  const [year, month, day] = dateStr.split('-').map(Number)
+  if (!year || !month || !day) return null
+  // month is already 1-indexed from the string; Date constructor is 0-indexed.
+  // So passing `month` directly (not month-1) advances one month automatically.
+  return new Date(year, month, PAY_DAY)
 }
 
 /**
