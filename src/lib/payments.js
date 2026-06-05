@@ -122,12 +122,18 @@ export function paymentsInRange(payments, start, end) {
 
 /**
  * Past vs future payments.
+ * Payments dated today or earlier → past (collected).
+ * Payments dated tomorrow or later → upcoming.
  */
 export function splitPaymentsByDate(payments, asOf = new Date()) {
+  // Use start of tomorrow as the cutoff so that payments dated today
+  // (e.g. the 7th at midnight) count as collected on the 7th itself,
+  // not on the 8th.
+  const tomorrow = new Date(asOf.getFullYear(), asOf.getMonth(), asOf.getDate() + 1)
   const past = []
   const upcoming = []
   payments.forEach((p) => {
-    if (p.date < asOf) past.push(p)
+    if (p.date < tomorrow) past.push(p)
     else upcoming.push(p)
   })
   return { past, upcoming }
