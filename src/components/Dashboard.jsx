@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from 'react'
 import {
-  TrendingUp, Target, Home, DollarSign,
+  TrendingUp, Home, DollarSign,
   ChevronDown, ChevronRight, Calendar, BarChart3,
 } from 'lucide-react'
 import {
@@ -117,19 +117,14 @@ export default function Dashboard({ sales, accounts, settings, setActiveTab, goT
       months[m].commission += Number(s.commission_amount || 0)
     })
 
-    const netWorth = accounts.reduce((sum, a) => {
-      const sign = a.type === 'credit' ? -1 : 1
-      return sum + sign * Number(a.balance || 0)
-    }, 0)
-
     const avgVolume = yearSales.length ? ytdVolume / yearSales.length : 0
 
     return {
       yearSales, ytdCommission, ytdVolume,
       volumeGoal, volumePct,
-      quarters, months, netWorth, avgVolume,
+      quarters, months, avgVolume,
     }
-  }, [sales, accounts, settings, dateSource, year])
+  }, [sales, settings, dateSource, year])
 
   const chartData = period === 'monthly'
     ? stats.months.map((m) => ({
@@ -215,7 +210,7 @@ export default function Dashboard({ sales, accounts, settings, setActiveTab, goT
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <KpiCard
           icon={<Home size={14} />}
           label="Sales"
@@ -227,12 +222,6 @@ export default function Dashboard({ sales, accounts, settings, setActiveTab, goT
           icon={<DollarSign size={14} />}
           label="Avg Price"
           value={fmtCompact(stats.avgVolume)}
-        />
-        <KpiCard
-          icon={<Target size={14} />}
-          label="Net Worth"
-          value={fmt(stats.netWorth)}
-          onClick={() => setActiveTab && setActiveTab('momoney')}
         />
       </div>
 
