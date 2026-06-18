@@ -1,10 +1,17 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+
+// Local YYYY-MM-DD for "today" (avoids UTC off-by-one near midnight)
+function todayKey() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
 
 export function useSales(user) {
   const [sales, setSales] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const autoClosedThisSession = useRef(false)
 
   const fetchSales = useCallback(async () => {
     if (!user) return
@@ -25,6 +32,42 @@ export function useSales(user) {
   useEffect(() => {
     fetchSales()
   }, [fetchSales])
+
+  // Auto-close: any sale still "under_contract" whose closing date has been
+  // reached or passed flips to "closed" and persists to Supabase. Runs once
+  // per session after sales load.
+  useEffect(() => {
+    if (!user || loading || autoClosedThisSession.current) return
+    const today = todayKey()
+    const due = sales.filter(
+      (s) =>
+        s.status === 'under_contract' &&
+        s.closing_date &&
+        String(s.closing_date).slice(0, 10) <= today
+    )
+    if (!due.length) return
+    autoClosedThisSession.current = true
+    ;(async () => {
+      const updated = []
+      for (const s of due) {
+        const { data, error } = await supabase
+          .from('sales')
+          .update({ status: 'closed' })
+          .eq('id', s.id)
+          .select()
+          .single()
+        if (!error && data) updated.push(data)
+      }
+      if (updated.length) {
+        setSales((prev) =>
+          prev.map((s) => {
+            const u = updated.find((x) => x.id === s.id)
+            return u || s
+          })
+        )
+      }
+    })()
+  }, [sales, loading, user])
 
   const addSale = async (sale) => {
     const payload = { ...sale, user_id: user.id }
