@@ -6,6 +6,10 @@ const STATUS_OPTIONS = [
   { value: 'closed', label: 'Closed', color: '#047857', bg: '#d1fae5' },
 ]
 
+// Base commission rate (%). Anything above this (e.g. the 0.5% on Dirt) is a
+// bonus that pays entirely at close rather than splitting 40/60.
+const BASE_RATE = 2
+
 const fmt = (n) =>
   new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -101,10 +105,18 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
     await deleteSale(id)
   }
 
-  const previewCommission =
-    (Number(form.sale_price) || 0) *
-    (Number(form.commission_rate) / 100) *
-    (Number(form.split) / 100)
+  const salePriceNum = Number(form.sale_price) || 0
+  const rateNum = Number(form.commission_rate) || 0
+  const splitNum = Number(form.split) || 0
+
+  const previewCommission = salePriceNum * (rateNum / 100) * (splitNum / 100)
+
+  // Bonus = commission earned above the 2% base rate (e.g. the 0.5% on Dirt).
+  // The base portion splits 40/60; the bonus loads entirely onto the close.
+  const previewBonus = salePriceNum * (Math.max(0, rateNum - BASE_RATE) / 100) * (splitNum / 100)
+  const previewBase = previewCommission - previewBonus
+  const previewUpfront = previewBase * 0.4
+  const previewAtClose = previewBase * 0.6 + previewBonus
 
   // Filter mode: 'contract' (filter by contract_date) or 'payment' (filter by payment month, default)
   const isContractMode = salesFilter?.mode === 'contract'
@@ -141,6 +153,17 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
   const visibleSales = sales
     .filter((s) => s.status !== 'cancelled')
     .filter(filterMatchesSale)
+
+  // Compute the actual upfront/close amounts for a sale (bonus loads onto close)
+  const saleSplitAmounts = (sale) => {
+    const commission = Number(sale.commission_amount || 0)
+    const bonus = Number(sale.sale_price || 0) *
+      (Math.max(0, Number(sale.commission_rate || 0) - BASE_RATE) / 100) *
+      (Number(sale.split || 100) / 100)
+    const safeBonus = Math.min(Math.max(0, bonus), commission)
+    const base = commission - safeBonus
+    return { upfront: base * 0.4, closing: base * 0.6 + safeBonus }
+  }
 
   // Only show payment-type badges in payment mode
   const paymentTypeForSale = (sale) => {
@@ -230,6 +253,10 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
           {visibleSales.map((sale) => {
             const status = getStatusDisplay(sale.status)
             const payment = paymentTypeForSale(sale)
+            const amounts = saleSplitAmounts(sale)
+            const paymentAmount = payment
+              ? (payment.percent === 40 ? amounts.upfront : amounts.closing)
+              : null
             return (
               <div
                 key={sale.id}
@@ -271,7 +298,7 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
                   </div>
                   <div className="text-right shrink-0">
                     <div className="font-display text-lg font-medium text-ink">
-                      {payment ? `+${fmt(sale.commission_amount * payment.percent / 100)}` : fmt(sale.commission_amount)}
+                      {payment ? `+${fmt(paymentAmount)}` : fmt(sale.commission_amount)}
                     </div>
                     <div className="text-[10px] text-subtle uppercase tracking-wider">
                       {payment ? `${payment.percent}% of ${fmt(sale.commission_amount)}` : `${fmt(sale.sale_price)} × ${sale.commission_rate}%`}
@@ -412,8 +439,8 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
               </div>
 
               <Field label="Split">
-                <div className="grid grid-cols-3 gap-2">
-                  {[100, 80, 20].map((s) => (
+                <div className="grid grid-cols-4 gap-2">
+                  {[100, 80, 70, 20].map((s) => (
                     <button
                       key={s}
                       type="button"
@@ -440,14 +467,21 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
                 <div className="text-[10px] text-muted mt-1">
                   {fmt(form.sale_price || 0)} × {form.commission_rate}% × {form.split}% split
                 </div>
+                {previewBonus > 0 && (
+                  <div className="text-[10px] text-gold-dark mt-1">
+                    Includes {fmt(previewBonus)} dirt bonus (0.5%) paid at close
+                  </div>
+                )}
                 <div className="mt-3 pt-3 border-t border-gold/20 grid grid-cols-2 gap-2 text-[11px]">
                   <div>
                     <div className="text-subtle uppercase tracking-wider text-[9px]">40% Upfront</div>
-                    <div className="font-medium text-ink">{fmt(previewCommission * 0.4)}</div>
+                    <div className="font-medium text-ink">{fmt(previewUpfront)}</div>
                   </div>
                   <div>
-                    <div className="text-subtle uppercase tracking-wider text-[9px]">60% At Close</div>
-                    <div className="font-medium text-ink">{fmt(previewCommission * 0.6)}</div>
+                    <div className="text-subtle uppercase tracking-wider text-[9px]">
+                      60% At Close{previewBonus > 0 ? ' + bonus' : ''}
+                    </div>
+                    <div className="font-medium text-ink">{fmt(previewAtClose)}</div>
                   </div>
                 </div>
               </div>
