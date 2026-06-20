@@ -155,15 +155,15 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
     .filter((s) => s.status !== 'cancelled')
     .filter(filterMatchesSale)
 
-  // Group sales into month sections. Groups by closing_date when present,
-  // else contract_date. Sorted newest month first; sales within a month
-  // sorted by their grouping date descending. Months with no sales are skipped.
+  // Group sales into month sections by CONTRACT date. Sorted newest month
+  // first; sales within a month sorted by contract date descending. Months
+  // with no sales are skipped.
   const groupSalesByMonth = (list) => {
     const groups = new Map()
     list.forEach((sale) => {
-      const dateStr = sale.closing_date || sale.contract_date
+      const dateStr = sale.contract_date
       if (!dateStr) {
-        // Undated sales bucket together at the end
+        // Sales with no contract date bucket together at the end
         const key = 'undated'
         if (!groups.has(key)) {
           groups.set(key, { key, year: -1, month: -1, label: 'No date', sales: [], commission: 0, sortDate: 0 })
@@ -195,11 +195,11 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
     const arr = Array.from(groups.values())
     // Sort sections: dated months newest first, undated last
     arr.sort((a, b) => b.sortDate - a.sortDate)
-    // Sort sales within each month by grouping date descending
+    // Sort sales within each month by contract date descending
     arr.forEach((g) => {
       g.sales.sort((a, b) => {
-        const da = new Date(a.closing_date || a.contract_date || 0).getTime()
-        const db = new Date(b.closing_date || b.contract_date || 0).getTime()
+        const da = new Date(a.contract_date || 0).getTime()
+        const db = new Date(b.contract_date || 0).getTime()
         return db - da
       })
     })
