@@ -110,13 +110,18 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
   const rateNum = Number(form.commission_rate) || 0
   const splitNum = Number(form.split) || 0
 
-  // Upfront = full 40% of base 2% (never reduced by split).
-  // Closing = (60% of base + full dirt bonus) × split share.
+  // 20% referral split: your cut of the TOTAL deal commission, all upfront, $0 close.
+  // Otherwise: full 40% upfront of base 2% (never reduced by split); close = (60% base + bonus) × split.
+  const isReferral = splitNum <= 20
   const previewBaseRate = Math.min(rateNum, BASE_RATE)
   const previewBaseComm = salePriceNum * (previewBaseRate / 100)
   const previewBonus = salePriceNum * (Math.max(0, rateNum - BASE_RATE) / 100)
-  const previewUpfront = previewBaseComm * 0.4
-  const previewAtClose = (previewBaseComm * 0.6 + previewBonus) * (splitNum / 100)
+  const previewUpfront = isReferral
+    ? salePriceNum * (rateNum / 100) * (splitNum / 100)
+    : previewBaseComm * 0.4
+  const previewAtClose = isReferral
+    ? 0
+    : (previewBaseComm * 0.6 + previewBonus) * (splitNum / 100)
   const previewCommission = previewUpfront + previewAtClose
 
   // Filter mode: 'contract' (filter by contract_date) or 'payment' (filter by payment month, default)
@@ -213,7 +218,12 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
   const saleSplitAmounts = (sale) => {
     const price = Number(sale.sale_price || 0)
     const rate = Number(sale.commission_rate || 0)
-    const split = Number(sale.split || 100) / 100
+    const splitPct = Number(sale.split || 100)
+    const split = splitPct / 100
+    // 20% referral: full cut of total commission, all upfront, $0 at close.
+    if (splitPct <= 20) {
+      return { upfront: price * (rate / 100) * split, closing: 0 }
+    }
     const baseComm = price * (Math.min(rate, BASE_RATE) / 100)
     const bonus = price * (Math.max(0, rate - BASE_RATE) / 100)
     // Upfront: full 40% of base (no split). Closing: (60% base + bonus) × split.
@@ -551,7 +561,9 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
                   {fmt(previewCommission)}
                 </div>
                 <div className="text-[10px] text-muted mt-1">
-                  Full 40% upfront · {form.split}% of back-end at close
+                  {isReferral
+                    ? `Referral · ${form.split}% of total commission, all upfront`
+                    : `Full 40% upfront · ${form.split}% of back-end at close`}
                 </div>
                 {previewBonus > 0 && (
                   <div className="text-[10px] text-gold-dark mt-1">
@@ -560,12 +572,12 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
                 )}
                 <div className="mt-3 pt-3 border-t border-gold/20 grid grid-cols-2 gap-2 text-[11px]">
                   <div>
-                    <div className="text-subtle uppercase tracking-wider text-[9px]">40% Upfront (full)</div>
+                    <div className="text-subtle uppercase tracking-wider text-[9px]">{isReferral ? 'Upfront (all)' : '40% Upfront (full)'}</div>
                     <div className="font-medium text-ink">{fmt(previewUpfront)}</div>
                   </div>
                   <div>
                     <div className="text-subtle uppercase tracking-wider text-[9px]">
-                      Close{splitNum < 100 ? ` (${form.split}%)` : ''}{previewBonus > 0 ? ' + bonus' : ''}
+                      {isReferral ? 'At Close' : `Close${splitNum < 100 ? ` (${form.split}%)` : ''}${previewBonus > 0 ? ' + bonus' : ''}`}
                     </div>
                     <div className="font-medium text-ink">{fmt(previewAtClose)}</div>
                   </div>
