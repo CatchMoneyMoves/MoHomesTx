@@ -38,6 +38,7 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
   const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
+  const [collapsedMonths, setCollapsedMonths] = useState({})
 
   const openAdd = () => {
     setForm({ ...emptyForm, commission_rate: defaultRate || 2.0 })
@@ -154,6 +155,60 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
     .filter((s) => s.status !== 'cancelled')
     .filter(filterMatchesSale)
 
+  // Group sales into month sections. Groups by closing_date when present,
+  // else contract_date. Sorted newest month first; sales within a month
+  // sorted by their grouping date descending. Months with no sales are skipped.
+  const groupSalesByMonth = (list) => {
+    const groups = new Map()
+    list.forEach((sale) => {
+      const dateStr = sale.closing_date || sale.contract_date
+      if (!dateStr) {
+        // Undated sales bucket together at the end
+        const key = 'undated'
+        if (!groups.has(key)) {
+          groups.set(key, { key, year: -1, month: -1, label: 'No date', sales: [], commission: 0, sortDate: 0 })
+        }
+        const g = groups.get(key)
+        g.sales.push(sale)
+        g.commission += Number(sale.commission_amount || 0)
+        return
+      }
+      const d = new Date(dateStr)
+      const year = d.getFullYear()
+      const month = d.getMonth()
+      const key = `${year}-${month}`
+      if (!groups.has(key)) {
+        groups.set(key, {
+          key,
+          year,
+          month,
+          label: new Date(year, month, 1).toLocaleString('en', { month: 'long', year: 'numeric' }),
+          sales: [],
+          commission: 0,
+          sortDate: new Date(year, month, 1).getTime(),
+        })
+      }
+      const g = groups.get(key)
+      g.sales.push(sale)
+      g.commission += Number(sale.commission_amount || 0)
+    })
+    const arr = Array.from(groups.values())
+    // Sort sections: dated months newest first, undated last
+    arr.sort((a, b) => b.sortDate - a.sortDate)
+    // Sort sales within each month by grouping date descending
+    arr.forEach((g) => {
+      g.sales.sort((a, b) => {
+        const da = new Date(a.closing_date || a.contract_date || 0).getTime()
+        const db = new Date(b.closing_date || b.contract_date || 0).getTime()
+        return db - da
+      })
+    })
+    return arr
+  }
+
+  const monthGroups = groupSalesByMonth(visibleSales)
+  const toggleMonth = (key) => setCollapsedMonths((p) => ({ ...p, [key]: !p[key] }))
+
   // Compute the actual upfront/close amounts for a sale (bonus loads onto close)
   const saleSplitAmounts = (sale) => {
     const price = Number(sale.sale_price || 0)
@@ -249,78 +304,109 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
           <p className="text-sm text-muted">{emptyStateLabel}</p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {visibleSales.map((sale) => {
-            const status = getStatusDisplay(sale.status)
-            const payment = paymentTypeForSale(sale)
-            const amounts = saleSplitAmounts(sale)
-            const paymentAmount = payment
-              ? (payment.percent === 40 ? amounts.upfront : amounts.closing)
-              : null
+        <div className="space-y-6">
+          {monthGroups.map((group) => {
+            const collapsed = collapsedMonths[group.key]
             return (
-              <div
-                key={sale.id}
-                className="bg-white border border-line rounded-xl p-4 hover:border-gold/40 transition"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <h3 className="font-display text-base font-medium truncate">
-                        {sale.buyer_name}
-                      </h3>
-                      <span
-                        className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full font-medium"
-                        style={{ background: status?.bg, color: status?.color }}
-                      >
-                        {status?.label}
-                      </span>
-                      {payment && (
-                        <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full font-medium bg-gold-soft text-gold-dark">
-                          {payment.percent}% {payment.type}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-xs text-muted space-y-0.5">
-                      {sale.address && <div className="truncate">{sale.address}</div>}
-                      <div className="flex items-center gap-3 flex-wrap text-subtle">
-                        {sale.plan_design && <span>{sale.plan_design}</span>}
-                        <span className="capitalize">{sale.build_type}</span>
-                        <span>Split {sale.split}%</span>
-                        {sale.contract_date && (
-                          <span>
-                            {new Date(sale.contract_date).toLocaleDateString('en-US', {
-                              month: 'short', day: 'numeric', year: 'numeric',
-                            })}
-                          </span>
-                        )}
-                      </div>
-                    </div>
+              <div key={group.key} className="space-y-2">
+                {/* Month section header */}
+                <button
+                  onClick={() => toggleMonth(group.key)}
+                  className="w-full flex items-end justify-between gap-3 pb-2 border-b border-line group"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={`text-muted transition-transform ${collapsed ? '' : 'rotate-90'}`}>
+                      ›
+                    </span>
+                    <h3 className="font-display text-xl font-medium text-ink">{group.label}</h3>
+                    <span className="text-xs text-subtle font-sans">
+                      {group.sales.length} {group.sales.length === 1 ? 'sale' : 'sales'}
+                    </span>
                   </div>
-                  <div className="text-right shrink-0">
-                    <div className="font-display text-lg font-medium text-ink">
-                      {payment ? `+${fmt(paymentAmount)}` : fmt(sale.commission_amount)}
-                    </div>
-                    <div className="text-[10px] text-subtle uppercase tracking-wider">
-                      {payment ? `${payment.percent}% of ${fmt(sale.commission_amount)}` : `${fmt(sale.sale_price)} × ${sale.commission_rate}%`}
-                    </div>
-                    <div className="flex gap-1 mt-2 justify-end">
-                      <button
-                        onClick={() => openEdit(sale)}
-                        className="p-1.5 hover:bg-line rounded-lg transition"
-                        aria-label="Edit sale"
-                      >
-                        <Edit2 size={13} className="text-muted" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(sale.id)}
-                        className="p-1.5 hover:bg-red-50 rounded-lg transition"
-                        aria-label="Delete sale"
-                      >
-                        <Trash2 size={13} className="text-red-600" />
-                      </button>
-                    </div>
+                  <div className="text-right">
+                    <div className="text-[10px] uppercase tracking-wider text-subtle font-sans">Commission</div>
+                    <div className="font-display text-base font-medium text-gold-dark">{fmt(group.commission)}</div>
                   </div>
-                </div>
+                </button>
+
+                {!collapsed && (
+                  <div className="space-y-2">
+                    {group.sales.map((sale) => {
+                      const status = getStatusDisplay(sale.status)
+                      const payment = paymentTypeForSale(sale)
+                      const amounts = saleSplitAmounts(sale)
+                      const paymentAmount = payment
+                        ? (payment.percent === 40 ? amounts.upfront : amounts.closing)
+                        : null
+                      return (
+                        <div
+                          key={sale.id}
+                          className="bg-white border border-line rounded-xl p-4 hover:border-gold/40 transition"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap mb-1">
+                                <h4 className="font-display text-base font-medium truncate">
+                                  {sale.buyer_name}
+                                </h4>
+                                <span
+                                  className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full font-medium"
+                                  style={{ background: status?.bg, color: status?.color }}
+                                >
+                                  {status?.label}
+                                </span>
+                                {payment && (
+                                  <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full font-medium bg-gold-soft text-gold-dark">
+                                    {payment.percent}% {payment.type}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-xs text-muted space-y-0.5">
+                                {sale.address && <div className="truncate">{sale.address}</div>}
+                                <div className="flex items-center gap-3 flex-wrap text-subtle">
+                                  {sale.plan_design && <span>{sale.plan_design}</span>}
+                                  <span className="capitalize">{sale.build_type}</span>
+                                  <span>Split {sale.split}%</span>
+                                  {sale.contract_date && (
+                                    <span>
+                                      {new Date(sale.contract_date).toLocaleDateString('en-US', {
+                                        month: 'short', day: 'numeric', year: 'numeric',
+                                      })}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <div className="font-display text-lg font-medium text-ink">
+                                {payment ? `+${fmt(paymentAmount)}` : fmt(sale.commission_amount)}
+                              </div>
+                              <div className="text-[10px] text-subtle uppercase tracking-wider">
+                                {payment ? `${payment.percent}% of ${fmt(sale.commission_amount)}` : `${fmt(sale.sale_price)} × ${sale.commission_rate}%`}
+                              </div>
+                              <div className="flex gap-1 mt-2 justify-end">
+                                <button
+                                  onClick={() => openEdit(sale)}
+                                  className="p-1.5 hover:bg-line rounded-lg transition"
+                                  aria-label="Edit sale"
+                                >
+                                  <Edit2 size={13} className="text-muted" />
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(sale.id)}
+                                  className="p-1.5 hover:bg-red-50 rounded-lg transition"
+                                  aria-label="Delete sale"
+                                >
+                                  <Trash2 size={13} className="text-red-600" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             )
           })}
