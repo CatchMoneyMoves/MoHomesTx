@@ -109,14 +109,14 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
   const rateNum = Number(form.commission_rate) || 0
   const splitNum = Number(form.split) || 0
 
-  const previewCommission = salePriceNum * (rateNum / 100) * (splitNum / 100)
-
-  // Bonus = commission earned above the 2% base rate (e.g. the 0.5% on Dirt).
-  // The base portion splits 40/60; the bonus loads entirely onto the close.
-  const previewBonus = salePriceNum * (Math.max(0, rateNum - BASE_RATE) / 100) * (splitNum / 100)
-  const previewBase = previewCommission - previewBonus
-  const previewUpfront = previewBase * 0.4
-  const previewAtClose = previewBase * 0.6 + previewBonus
+  // Upfront = full 40% of base 2% (never reduced by split).
+  // Closing = (60% of base + full dirt bonus) × split share.
+  const previewBaseRate = Math.min(rateNum, BASE_RATE)
+  const previewBaseComm = salePriceNum * (previewBaseRate / 100)
+  const previewBonus = salePriceNum * (Math.max(0, rateNum - BASE_RATE) / 100)
+  const previewUpfront = previewBaseComm * 0.4
+  const previewAtClose = (previewBaseComm * 0.6 + previewBonus) * (splitNum / 100)
+  const previewCommission = previewUpfront + previewAtClose
 
   // Filter mode: 'contract' (filter by contract_date) or 'payment' (filter by payment month, default)
   const isContractMode = salesFilter?.mode === 'contract'
@@ -156,13 +156,13 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
 
   // Compute the actual upfront/close amounts for a sale (bonus loads onto close)
   const saleSplitAmounts = (sale) => {
-    const commission = Number(sale.commission_amount || 0)
-    const bonus = Number(sale.sale_price || 0) *
-      (Math.max(0, Number(sale.commission_rate || 0) - BASE_RATE) / 100) *
-      (Number(sale.split || 100) / 100)
-    const safeBonus = Math.min(Math.max(0, bonus), commission)
-    const base = commission - safeBonus
-    return { upfront: base * 0.4, closing: base * 0.6 + safeBonus }
+    const price = Number(sale.sale_price || 0)
+    const rate = Number(sale.commission_rate || 0)
+    const split = Number(sale.split || 100) / 100
+    const baseComm = price * (Math.min(rate, BASE_RATE) / 100)
+    const bonus = price * (Math.max(0, rate - BASE_RATE) / 100)
+    // Upfront: full 40% of base (no split). Closing: (60% base + bonus) × split.
+    return { upfront: baseComm * 0.4, closing: (baseComm * 0.6 + bonus) * split }
   }
 
   // Only show payment-type badges in payment mode
@@ -465,7 +465,7 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
                   {fmt(previewCommission)}
                 </div>
                 <div className="text-[10px] text-muted mt-1">
-                  {fmt(form.sale_price || 0)} × {form.commission_rate}% × {form.split}% split
+                  Full 40% upfront · {form.split}% of back-end at close
                 </div>
                 {previewBonus > 0 && (
                   <div className="text-[10px] text-gold-dark mt-1">
@@ -474,12 +474,12 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
                 )}
                 <div className="mt-3 pt-3 border-t border-gold/20 grid grid-cols-2 gap-2 text-[11px]">
                   <div>
-                    <div className="text-subtle uppercase tracking-wider text-[9px]">40% Upfront</div>
+                    <div className="text-subtle uppercase tracking-wider text-[9px]">40% Upfront (full)</div>
                     <div className="font-medium text-ink">{fmt(previewUpfront)}</div>
                   </div>
                   <div>
                     <div className="text-subtle uppercase tracking-wider text-[9px]">
-                      60% At Close{previewBonus > 0 ? ' + bonus' : ''}
+                      Close{splitNum < 100 ? ` (${form.split}%)` : ''}{previewBonus > 0 ? ' + bonus' : ''}
                     </div>
                     <div className="font-medium text-ink">{fmt(previewAtClose)}</div>
                   </div>
