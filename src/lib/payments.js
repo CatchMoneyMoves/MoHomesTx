@@ -34,10 +34,19 @@ function nextMonth7th(dateStr) {
 function splitCommission(sale) {
   const salePrice = Number(sale.sale_price || 0)
   const rate = Number(sale.commission_rate || 0)
-  const split = Number(sale.split || 100) / 100
+  const splitPct = Number(sale.split || 100)
+  const split = splitPct / 100
   if (salePrice <= 0 || rate <= 0) return { upfront: 0, closing: 0 }
 
-  // Base 2% commission (the part the 40/60 timing is computed on)
+  // Referral split (20%): your cut is your % of the TOTAL deal commission,
+  // paid 100% upfront with nothing at close.
+  if (splitPct <= 20) {
+    const totalCommission = salePrice * (rate / 100)
+    return { upfront: totalCommission * split, closing: 0 }
+  }
+
+  // Standard splits (70/80/100): full 40% upfront of base 2%, never reduced
+  // by split; closing is (60% of base + full bonus) × your split share.
   const baseRate = Math.min(rate, BASE_RATE)
   const baseCommission = salePrice * (baseRate / 100)
 
