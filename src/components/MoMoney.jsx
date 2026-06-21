@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, LabelList,
 } from 'recharts'
+import { CheckCircle2 } from 'lucide-react'
 import { forecastPayments, groupByMonth, splitPaymentsByDate } from '../lib/payments'
 
 const fmt = (n) =>
@@ -195,7 +196,12 @@ export default function MoMoney({
                         <div className="text-sm font-display font-medium leading-none mt-0.5">{p.date.getDate()}</div>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">{p.buyerName}</div>
+                        <div className="flex items-center gap-1.5">
+                          <div className="text-sm font-medium truncate">{p.buyerName}</div>
+                          {p.status === 'closed' && (
+                            <CheckCircle2 size={14} className="text-green-700 shrink-0" aria-label="Closed" />
+                          )}
+                        </div>
                         <div className="text-[11px] text-subtle">
                           {p.percent}% {p.type === 'upfront' ? 'upfront' : 'closing'}
                         </div>
@@ -232,7 +238,12 @@ export default function MoMoney({
                   <div className="text-sm font-display font-medium leading-none mt-0.5">{p.date.getDate()}</div>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">{p.buyerName}</div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="text-sm font-medium truncate">{p.buyerName}</div>
+                    {p.status === 'closed' && (
+                      <CheckCircle2 size={14} className="text-green-700 shrink-0" aria-label="Closed" />
+                    )}
+                  </div>
                   <div className="text-[11px] text-subtle">
                     {p.percent}% {p.type === 'upfront' ? 'upfront' : 'closing'} · paid {p.date.toLocaleString('en', { month: 'long', year: 'numeric' })}
                   </div>
