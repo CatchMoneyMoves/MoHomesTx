@@ -65,7 +65,9 @@ export default function MoMoney({
       const key = `${d.getFullYear()}-${d.getMonth()}`
       const bucket = monthlyGroups.find((m) => `${m.year}-${m.month}` === key)
       months.push({
-        label: d.toLocaleString('en', { month: 'short' }),
+        label: d.getFullYear() === startYear
+          ? d.toLocaleString('en', { month: 'short' })
+          : `${d.toLocaleString('en', { month: 'short' })} '${String(d.getFullYear()).slice(2)}`,
         year: d.getFullYear(),
         month: d.getMonth(),
         amount: bucket?.total || 0,
@@ -76,7 +78,11 @@ export default function MoMoney({
     while (months.length > 12 && months[months.length - 1].amount === 0) {
       months.pop()
     }
-    return months
+    // Keep only months that actually have a payment. Empty months just spread
+    // the bars thin and crowd the X-axis labels on mobile; dropping them makes
+    // each remaining month wide and clearly labeled.
+    const withPayments = months.filter((m) => m.amount > 0)
+    return withPayments.length ? withPayments : months
   }, [monthlyGroups])
 
   return (
@@ -121,9 +127,16 @@ export default function MoMoney({
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={chartData} margin={{ top: 28, right: 8, left: 0, bottom: 0 }}>
-              <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#57534e' }} />
+            <BarChart data={chartData} margin={{ top: 28, right: 6, left: 0, bottom: 0 }} barCategoryGap="18%">
+              <XAxis
+                dataKey="label"
+                axisLine={false}
+                tickLine={false}
+                interval={0}
+                tick={{ fontSize: 10, fill: '#57534e' }}
+              />
               <YAxis
+                width={30}
                 axisLine={false} tickLine={false}
                 tick={{ fontSize: 10, fill: '#a8a29e' }}
                 tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}
