@@ -74,15 +74,13 @@ export default function MoMoney({
         count: bucket?.payments.length || 0,
       })
     }
-    // Trim trailing empty months so chart isn't full of zeros
+    // Trim trailing empty months so chart isn't full of zeros, but keep the
+    // full run otherwise — the chart is horizontally scrollable so every month
+    // stays visible and readable.
     while (months.length > 12 && months[months.length - 1].amount === 0) {
       months.pop()
     }
-    // Keep only months that actually have a payment. Empty months just spread
-    // the bars thin and crowd the X-axis labels on mobile; dropping them makes
-    // each remaining month wide and clearly labeled.
-    const withPayments = months.filter((m) => m.amount > 0)
-    return withPayments.length ? withPayments : months
+    return months
   }, [monthlyGroups])
 
   return (
@@ -126,21 +124,23 @@ export default function MoMoney({
             Perry pays 40% upfront month after contract, 60% month after closing.
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={chartData} margin={{ top: 28, right: 6, left: 0, bottom: 0 }} barCategoryGap="18%">
-              <XAxis
-                dataKey="label"
-                axisLine={false}
-                tickLine={false}
-                interval={0}
-                tick={{ fontSize: 10, fill: '#57534e' }}
-              />
-              <YAxis
-                width={30}
-                axisLine={false} tickLine={false}
-                tick={{ fontSize: 10, fill: '#a8a29e' }}
-                tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}
-              />
+          <div className="overflow-x-auto -mx-1 px-1 [scrollbar-width:thin]">
+            <div style={{ width: `${Math.max(chartData.length * 56, 320)}px`, minWidth: '100%' }}>
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={chartData} margin={{ top: 28, right: 6, left: 0, bottom: 0 }} barCategoryGap="18%">
+                  <XAxis
+                    dataKey="label"
+                    axisLine={false}
+                    tickLine={false}
+                    interval={0}
+                    tick={{ fontSize: 10, fill: '#57534e' }}
+                  />
+                  <YAxis
+                    width={30}
+                    axisLine={false} tickLine={false}
+                    tick={{ fontSize: 10, fill: '#a8a29e' }}
+                    tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}
+                  />
               <Tooltip
                 cursor={{ fill: '#fefce8' }}
                 content={({ active, payload }) => {
@@ -176,7 +176,9 @@ export default function MoMoney({
                 />
               </Bar>
             </BarChart>
-          </ResponsiveContainer>
+              </ResponsiveContainer>
+            </div>
+          </div>
         )}
       </div>
 
