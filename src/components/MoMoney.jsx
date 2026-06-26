@@ -59,8 +59,8 @@ export default function MoMoney({
     const now = new Date()
     const startYear = now.getFullYear()
     const months = []
-    // 24 months: Jan current year through Dec next year
-    for (let i = 0; i < 24; i++) {
+    // 12 months: Jan through Dec of the current year
+    for (let i = 0; i < 12; i++) {
       const d = new Date(startYear, i, 1)
       const key = `${d.getFullYear()}-${d.getMonth()}`
       const bucket = monthlyGroups.find((m) => `${m.year}-${m.month}` === key)
@@ -73,12 +73,6 @@ export default function MoMoney({
         amount: bucket?.total || 0,
         count: bucket?.payments.length || 0,
       })
-    }
-    // Trim trailing empty months so chart isn't full of zeros, but keep the
-    // full run otherwise — the chart is horizontally scrollable so every month
-    // stays visible and readable.
-    while (months.length > 12 && months[months.length - 1].amount === 0) {
-      months.pop()
     }
     return months
   }, [monthlyGroups])
@@ -125,9 +119,9 @@ export default function MoMoney({
           </div>
         ) : (
           <div className="overflow-x-auto -mx-1 px-1 [scrollbar-width:thin]">
-            <div style={{ width: `${Math.max(chartData.length * 56, 320)}px`, minWidth: '100%' }}>
+            <div style={{ width: "960px", minWidth: "100%" }}>
               <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={chartData} margin={{ top: 28, right: 6, left: 0, bottom: 0 }} barCategoryGap="18%">
+                <BarChart data={chartData} margin={{ top: 28, right: 6, left: -12, bottom: 0 }} barCategoryGap="12%">
                   <XAxis
                     dataKey="label"
                     axisLine={false}
@@ -136,7 +130,7 @@ export default function MoMoney({
                     tick={{ fontSize: 10, fill: '#57534e' }}
                   />
                   <YAxis
-                    width={30}
+                    width={22}
                     axisLine={false} tickLine={false}
                     tick={{ fontSize: 10, fill: '#a8a29e' }}
                     tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}
