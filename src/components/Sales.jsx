@@ -1,4 +1,4 @@
-import { useState } from 'react'
+\import { useState, useEffect } from 'react'
 import { Plus, Edit2, Trash2, X, Check } from 'lucide-react'
 
 const STATUS_OPTIONS = [
@@ -38,8 +38,33 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
   const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
-  const [collapsedMonths, setCollapsedMonths] = useState({})
-  const [sortOrder, setSortOrder] = useState('newest')
+  const [collapsedMonths, setCollapsedMonths] = useState(() => {
+    try {
+      const saved = localStorage.getItem('mohomestx_collapsedMonths')
+      return saved ? JSON.parse(saved) : {}
+    } catch {
+      return {}
+    }
+  })
+  const [sortOrder, setSortOrder] = useState(() => {
+    try {
+      return localStorage.getItem('mohomestx_sortOrder') || 'newest'
+    } catch {
+      return 'newest'
+    }
+  })
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('mohomestx_collapsedMonths', JSON.stringify(collapsedMonths))
+    } catch {}
+  }, [collapsedMonths])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('mohomestx_sortOrder', sortOrder)
+    } catch {}
+  }, [sortOrder])
 
   const openAdd = () => {
     setForm({ ...emptyForm, commission_rate: defaultRate || 2.0 })
