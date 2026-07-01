@@ -39,6 +39,7 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
   const [collapsedMonths, setCollapsedMonths] = useState({})
+  const [sortOrder, setSortOrder] = useState('newest')
 
   const openAdd = () => {
     setForm({ ...emptyForm, commission_rate: defaultRate || 2.0 })
@@ -163,7 +164,7 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
   // Group sales into month sections by CONTRACT date. Sorted newest month
   // first; sales within a month sorted by contract date descending. Months
   // with no sales are skipped.
-  const groupSalesByMonth = (list) => {
+  const groupSalesByMonth = (list, order) => {
     const groups = new Map()
     list.forEach((sale) => {
       const dateStr = sale.contract_date
@@ -198,20 +199,23 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
       g.commission += Number(sale.commission_amount || 0)
     })
     const arr = Array.from(groups.values())
-    // Sort sections: dated months newest first, undated last
-    arr.sort((a, b) => b.sortDate - a.sortDate)
-    // Sort sales within each month by contract date descending
-    arr.forEach((g) => {
+    const dated = arr.filter((g) => g.key !== 'undated')
+    const undated = arr.filter((g) => g.key === 'undated')
+    // Sort dated sections by month; direction follows sortOrder. Undated
+    // sales always stay last regardless of order.
+    dated.sort((a, b) => (order === 'oldest' ? a.sortDate - b.sortDate : b.sortDate - a.sortDate))
+    // Sort sales within each month by contract date; direction follows sortOrder.
+    dated.forEach((g) => {
       g.sales.sort((a, b) => {
         const da = new Date(a.contract_date || 0).getTime()
         const db = new Date(b.contract_date || 0).getTime()
-        return db - da
+        return order === 'oldest' ? da - db : db - da
       })
     })
-    return arr
+    return [...dated, ...undated]
   }
 
-  const monthGroups = groupSalesByMonth(visibleSales)
+  const monthGroups = groupSalesByMonth(visibleSales, sortOrder)
   const toggleMonth = (key) => setCollapsedMonths((p) => ({ ...p, [key]: !p[key] }))
 
   // Compute the actual upfront/close amounts for a sale (bonus loads onto close)
@@ -286,12 +290,23 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
           <h2 className="font-display text-2xl font-medium">Sales</h2>
           <p className="text-sm text-muted">{visibleSales.length} {filterSubtitleLabel}</p>
         </div>
-        <button
-          onClick={openAdd}
-          className="flex items-center gap-1.5 px-4 py-2 bg-ink text-cream rounded-lg text-sm font-medium hover:bg-ink/90 transition"
-        >
-          <Plus size={14} /> Add Sale
-        </button>
+        <div className="flex items-center gap-2">
+          <select
+            value={sortOrder}
+            onChange={(e) => setSortOrder(e.target.value)}
+            className="px-3 py-2 bg-white border border-line rounded-lg text-sm font-medium text-ink hover:bg-cream transition cursor-pointer"
+            aria-label="Sort sales"
+          >
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
+          </select>
+          <button
+            onClick={openAdd}
+            className="flex items-center gap-1.5 px-4 py-2 bg-ink text-cream rounded-lg text-sm font-medium hover:bg-ink/90 transition"
+          >
+            <Plus size={14} /> Add Sale
+          </button>
+        </div>
       </div>
 
       {salesFilter && (
@@ -314,15 +329,18 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
           <p className="text-sm text-muted">{emptyStateLabel}</p>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-5">
           {monthGroups.map((group) => {
             const collapsed = collapsedMonths[group.key]
             return (
-              <div key={group.key} className="space-y-2">
+              <div
+                key={group.key}
+                className="bg-[#f2f0e9] border border-line/70 rounded-2xl p-5"
+              >
                 {/* Month section header */}
                 <button
                   onClick={() => toggleMonth(group.key)}
-                  className="w-full flex items-end justify-between gap-3 pb-2 border-b border-line group"
+                  className="w-full flex items-end justify-between gap-3 group"
                 >
                   <div className="flex items-center gap-2">
                     <span className={`text-muted transition-transform ${collapsed ? '' : 'rotate-90'}`}>
@@ -340,7 +358,7 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
                 </button>
 
                 {!collapsed && (
-                  <div className="space-y-2">
+                  <div className="space-y-2 mt-4">
                     {group.sales.map((sale) => {
                       const status = getStatusDisplay(sale.status)
                       const payment = paymentTypeForSale(sale)
