@@ -54,6 +54,29 @@ export default function MoMoney({
     })
   }, [upcoming])
 
+  // Group collected (past) payments by month, most recent month first
+  const pastByMonth = useMemo(() => {
+    const groups = {}
+    past.forEach((p) => {
+      const key = `${p.date.getFullYear()}-${p.date.getMonth()}`
+      if (!groups[key]) {
+        groups[key] = {
+          year: p.date.getFullYear(),
+          month: p.date.getMonth(),
+          label: p.date.toLocaleString('en', { month: 'long', year: 'numeric' }),
+          payments: [],
+          total: 0,
+        }
+      }
+      groups[key].payments.push(p)
+      groups[key].total += p.amount
+    })
+    return Object.values(groups).sort((a, b) => {
+      if (a.year !== b.year) return b.year - a.year
+      return b.month - a.month
+    })
+  }, [past])
+
   // Chart data — Jan of current year through Dec next year (covers past collected + future forecast)
   const chartData = useMemo(() => {
     const now = new Date()
@@ -239,28 +262,42 @@ export default function MoMoney({
             </div>
           </div>
           <p className="text-xs text-muted mb-4">{past.length} payment{past.length !== 1 ? 's' : ''} based on contract/closing dates that have passed</p>
-          <div className="space-y-2">
-            {past.slice(-8).reverse().map((p, i) => (
-              <div key={i} className="flex items-center gap-3 p-3 bg-cream/60 rounded-lg">
-                <div className="w-10 h-10 rounded-lg bg-green-50 text-green-700 flex flex-col items-center justify-center shrink-0">
-                  <div className="text-[8px] uppercase tracking-wider leading-none">{p.date.toLocaleString('en', { month: 'short' })}</div>
-                  <div className="text-sm font-display font-medium leading-none mt-0.5">{p.date.getDate()}</div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <div className="text-sm font-medium truncate">{p.buyerName}</div>
-                    {(p.type === 'upfront' || p.status === 'closed') && (
-                      <CheckCircle2 size={14} className="text-green-700 shrink-0" aria-label="Closed" />
-                    )}
+          <div className="space-y-5">
+            {pastByMonth.map((group) => (
+              <div key={`${group.year}-${group.month}`}>
+                <div className="flex items-baseline justify-between mb-2 pb-2 border-b border-line">
+                  <div className="text-xs uppercase tracking-widest text-gold-dark font-medium">
+                    {group.label}
                   </div>
                   <div className="text-[11px] text-subtle">
-                    {p.percent}% {p.type === 'upfront' ? 'upfront' : 'closing'} · paid {p.date.toLocaleString('en', { month: 'long', year: 'numeric' })}
+                    {group.payments.length} {group.payments.length === 1 ? 'payment' : 'payments'} · <span className="font-medium text-ink">{fmt(group.total)}</span>
                   </div>
                 </div>
-                <div className="text-right shrink-0">
-                  <div className="font-medium text-sm text-ink">
-                    {fmt(p.amount)}
-                  </div>
+                <div className="space-y-2">
+                  {group.payments.map((p, i) => (
+                    <div key={i} className="flex items-center gap-3 p-3 bg-cream/60 rounded-lg">
+                      <div className="w-10 h-10 rounded-lg bg-green-50 text-green-700 flex flex-col items-center justify-center shrink-0">
+                        <div className="text-[8px] uppercase tracking-wider leading-none">{p.date.toLocaleString('en', { month: 'short' })}</div>
+                        <div className="text-sm font-display font-medium leading-none mt-0.5">{p.date.getDate()}</div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <div className="text-sm font-medium truncate">{p.buyerName}</div>
+                          {(p.type === 'upfront' || p.status === 'closed') && (
+                            <CheckCircle2 size={14} className="text-green-700 shrink-0" aria-label="Closed" />
+                          )}
+                        </div>
+                        <div className="text-[11px] text-subtle">
+                          {p.percent}% {p.type === 'upfront' ? 'upfront' : 'closing'} · paid {p.date.toLocaleString('en', { month: 'long', year: 'numeric' })}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="font-medium text-sm text-ink">
+                          {fmt(p.amount)}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
