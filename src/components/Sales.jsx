@@ -4,6 +4,7 @@ import { Plus, Edit2, Trash2, X, Check } from 'lucide-react'
 const STATUS_OPTIONS = [
   { value: 'under_contract', label: 'Under Contract', color: '#1d4ed8', bg: '#dbeafe' },
   { value: 'closed', label: 'Closed', color: '#047857', bg: '#d1fae5' },
+  { value: 'busted', label: 'Busted', color: '#b91c1c', bg: '#fee2e2' },
 ]
 
 // Base commission rate (%). Anything above this (e.g. the 0.5% on Dirt) is a
@@ -31,6 +32,7 @@ const emptyForm = {
   realtor_name: '',
   lead_source: '',
   notes: '',
+  bust_percent: null,
 }
 
 export default function Sales({ sales, addSale, updateSale, deleteSale, defaultRate, salesFilter, clearFilter }) {
@@ -92,6 +94,7 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
       realtor_name: sale.realtor_name || '',
       lead_source: sale.lead_source || '',
       notes: sale.notes || '',
+      bust_percent: sale.bust_percent || null,
     })
     setEditingId(sale.id)
     setShowForm(true)
@@ -105,6 +108,19 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
     }))
   }
 
+  // Toggle a bust percentage. Clicking the same one again clears it and
+  // reverts status back to under_contract.
+  const handleBustToggle = (pct) => {
+    setForm((f) => {
+      const clearing = f.bust_percent === pct
+      return {
+        ...f,
+        bust_percent: clearing ? null : pct,
+        status: clearing ? 'under_contract' : 'busted',
+      }
+    })
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSaving(true)
@@ -114,6 +130,7 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
       commission_rate: Number(form.commission_rate) || 2.0,
       split: Number(form.split) || 100,
       closing_date: form.closing_date || null,
+      bust_percent: form.status === 'busted' ? form.bust_percent : null,
     }
     const { error } = editingId
       ? await updateSale(editingId, payload)
@@ -149,6 +166,10 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
     ? 0
     : (previewBaseComm * 0.6 + previewBonus) * (splitNum / 100)
   const previewCommission = previewUpfront + previewAtClose
+
+  // Clawback preview: portion of BASE commission owed back on a bust.
+  // 40% bust = full upfront share owed back. 20% bust = half that.
+  const previewClawback = previewBaseComm * ((form.bust_percent || 0) / 100)
 
   // Filter mode: 'contract' (filter by contract_date) or 'payment' (filter by payment month, default)
   const isContractMode = salesFilter?.mode === 'contract'
@@ -201,7 +222,7 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
         }
         const g = groups.get(key)
         g.sales.push(sale)
-        g.commission += Number(sale.commission_amount || 0)
+        g.commission += saleNetAmount(sale)
         return
       }
       const d = new Date(dateStr)
@@ -221,7 +242,7 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
       }
       const g = groups.get(key)
       g.sales.push(sale)
-      g.commission += Number(sale.commission_amount || 0)
+      g.commission += saleNetAmount(sale)
     })
     const arr = Array.from(groups.values())
     const dated = arr.filter((g) => g.key !== 'undated')
@@ -240,9 +261,6 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
     return [...dated, ...undated]
   }
 
-  const monthGroups = groupSalesByMonth(visibleSales, sortOrder)
-  const toggleMonth = (key) => setCollapsedMonths((p) => ({ ...p, [key]: !p[key] }))
-
   // Compute the actual upfront/close amounts for a sale (bonus loads onto close)
   const saleSplitAmounts = (sale) => {
     const price = Number(sale.sale_price || 0)
@@ -258,6 +276,25 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
     // Upfront: full 40% of base (no split). Closing: (60% base + bonus) × split.
     return { upfront: baseComm * 0.4, closing: (baseComm * 0.6 + bonus) * split }
   }
+
+  // Clawback amount owed back on a busted sale: portion of BASE commission
+  // (40% bust = full upfront share, 20% bust = half that), shown as negative.
+  const saleClawback = (sale) => {
+    const price = Number(sale.sale_price || 0)
+    const rate = Number(sale.commission_rate || 0)
+    const baseComm = price * (Math.min(rate, BASE_RATE) / 100)
+    return baseComm * ((Number(sale.bust_percent) || 0) / 100)
+  }
+
+  // Net commission contribution for a sale — negative clawback if busted,
+  // otherwise the normal commission_amount.
+  const saleNetAmount = (sale) => {
+    if (sale.status === 'busted') return -saleClawback(sale)
+    return Number(sale.commission_amount || 0)
+  }
+
+  const monthGroups = groupSalesByMonth(visibleSales, sortOrder)
+  const toggleMonth = (key) => setCollapsedMonths((p) => ({ ...p, [key]: !p[key] }))
 
   // Only show payment-type badges in payment mode
   const paymentTypeForSale = (sale) => {
@@ -378,7 +415,9 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
                   </div>
                   <div className="text-right">
                     <div className="text-[10px] uppercase tracking-wider text-subtle font-sans">Commission</div>
-                    <div className="font-display text-base font-medium text-gold-dark">{fmt(group.commission)}</div>
+                    <div className={`font-display text-base font-medium ${group.commission < 0 ? 'text-red-700' : 'text-gold-dark'}`}>
+                      {group.commission < 0 ? `-${fmt(Math.abs(group.commission))}` : fmt(group.commission)}
+                    </div>
                   </div>
                 </button>
 
@@ -391,10 +430,14 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
                       const paymentAmount = payment
                         ? (payment.percent === 40 ? amounts.upfront : amounts.closing)
                         : null
+                      const isBusted = sale.status === 'busted'
+                      const clawback = isBusted ? saleClawback(sale) : 0
                       return (
                         <div
                           key={sale.id}
-                          className="bg-white border border-line rounded-xl p-4 hover:border-gold/40 transition"
+                          className={`bg-white border rounded-xl p-4 transition ${
+                            isBusted ? 'border-red-200 hover:border-red-300' : 'border-line hover:border-gold/40'
+                          }`}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex-1 min-w-0">
@@ -408,7 +451,12 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
                                 >
                                   {status?.label}
                                 </span>
-                                {payment && (
+                                {isBusted && (
+                                  <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full font-medium bg-red-50 text-red-700">
+                                    {sale.bust_percent}% clawback
+                                  </span>
+                                )}
+                                {payment && !isBusted && (
                                   <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full font-medium bg-gold-soft text-gold-dark">
                                     {payment.percent}% {payment.type}
                                   </span>
@@ -431,11 +479,15 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
                               </div>
                             </div>
                             <div className="text-right shrink-0">
-                              <div className="font-display text-lg font-medium text-ink">
-                                {payment ? `+${fmt(paymentAmount)}` : fmt(sale.commission_amount)}
+                              <div className={`font-display text-lg font-medium ${isBusted ? 'text-red-700' : 'text-ink'}`}>
+                                {isBusted
+                                  ? `-${fmt(clawback)}`
+                                  : payment ? `+${fmt(paymentAmount)}` : fmt(sale.commission_amount)}
                               </div>
                               <div className="text-[10px] text-subtle uppercase tracking-wider">
-                                {payment ? `${payment.percent}% of ${fmt(sale.commission_amount)}` : `${fmt(sale.sale_price)} × ${sale.commission_rate}%`}
+                                {isBusted
+                                  ? `${sale.bust_percent}% of base commission owed back`
+                                  : payment ? `${payment.percent}% of ${fmt(sale.commission_amount)}` : `${fmt(sale.sale_price)} × ${sale.commission_rate}%`}
                               </div>
                               <div className="flex gap-1 mt-2 justify-end">
                                 <button
@@ -629,11 +681,11 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
 
               <Field label="Status">
                 <div className="grid grid-cols-2 gap-2">
-                  {STATUS_OPTIONS.map((s) => (
+                  {STATUS_OPTIONS.filter((s) => s.value !== 'busted').map((s) => (
                     <button
                       key={s.value}
                       type="button"
-                      onClick={() => setForm({ ...form, status: s.value })}
+                      onClick={() => setForm({ ...form, status: s.value, bust_percent: null })}
                       className={`px-3 py-2.5 rounded-lg text-sm font-medium transition border ${
                         form.status === s.value
                           ? 'bg-ink text-cream border-ink'
@@ -645,6 +697,50 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
                   ))}
                 </div>
               </Field>
+
+              <div className="border border-red-200 rounded-xl p-4 bg-red-50/40">
+                <div className="text-[10px] uppercase tracking-widest text-red-700 font-medium mb-1">
+                  Deal Busted?
+                </div>
+                <p className="text-[11px] text-muted mb-3">
+                  Buyer backed out after upfront was paid — mark how much of the base commission has to be paid back.
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleBustToggle(20)}
+                    className={`px-3 py-2.5 rounded-lg text-sm font-medium transition border ${
+                      form.bust_percent === 20
+                        ? 'bg-red-700 text-white border-red-700'
+                        : 'bg-white text-muted border-line'
+                    }`}
+                  >
+                    20% Bust
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleBustToggle(40)}
+                    className={`px-3 py-2.5 rounded-lg text-sm font-medium transition border ${
+                      form.bust_percent === 40
+                        ? 'bg-red-700 text-white border-red-700'
+                        : 'bg-white text-muted border-line'
+                    }`}
+                  >
+                    40% Bust
+                  </button>
+                </div>
+                {form.bust_percent && (
+                  <div className="mt-3 pt-3 border-t border-red-200">
+                    <div className="text-[9px] uppercase tracking-wider text-red-700">Amount owed back</div>
+                    <div className="font-display text-xl font-medium text-red-700">
+                      -{fmt(previewClawback)}
+                    </div>
+                    <div className="text-[10px] text-muted mt-0.5">
+                      {form.bust_percent}% of base commission ({fmt(previewBaseComm)})
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Contract Date">
