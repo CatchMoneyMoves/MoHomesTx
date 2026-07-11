@@ -9,6 +9,19 @@
 //     bonus (any rate above 2%, e.g. the 0.5% on Dirt). The split %
 //     applies ONLY to this closing payment (your share of the back end).
 //   - 100% split = you keep the entire closing too.
+//
+// Busted deals:
+//   - A bust means the upfront (40%) was already paid, then the deal fell
+//     through — so the original upfront payment still happened (real money
+//     you received), but a clawback of bust_percent% of BASE commission is
+//     owed back. No closing payment ever occurs for a busted deal.
+//   - Clawback amount = base commission (sale_price × min(rate, 2%)) ×
+//     (bust_percent / 100), shown as a NEGATIVE payment so it subtracts
+//     directly from Collected/Upcoming totals and month groupings.
+//   - There's no dedicated bust_date field yet, so the clawback is dated
+//     off closing_date if set, else contract_date, else today. Add a
+//     bust_date column later if you want this to be precise rather than
+//     inferred.
 
 const PAY_DAY = 7
 const BASE_RATE = 2 // % — base commission. Anything above is bonus, loads onto close.
@@ -64,15 +77,84 @@ function splitCommission(sale) {
 }
 
 /**
+ * Clawback amount owed back on a busted sale — bust_percent% of BASE
+ * commission (sale_price × min(rate, 2%)), independent of split.
+ */
+function clawbackAmount(sale) {
+  const salePrice = Number(sale.sale_price || 0)
+  const rate = Number(sale.commission_rate || 0)
+  const bustPercent = Number(sale.bust_percent || 0)
+  if (salePrice <= 0 || rate <= 0 || bustPercent <= 0) return 0
+  const baseRate = Math.min(rate, BASE_RATE)
+  const baseCommission = salePrice * (baseRate / 100)
+  return baseCommission * (bustPercent / 100)
+}
+
+/**
+ * Best-available date for a clawback payment: closing_date, then
+ * contract_date, then today. See note at top of file — precise bust_date
+ * tracking isn't wired up yet.
+ */
+function clawbackDate(sale) {
+  return (
+    nextMonth7th(sale.closing_date) ||
+    nextMonth7th(sale.contract_date) ||
+    new Date()
+  )
+}
+
+/**
  * Returns an array of expected payments from a sale.
  */
 export function paymentsFromSale(sale) {
   if (!sale || sale.status === 'cancelled') return []
 
+  const payments = []
+
+  // Busted deal: the upfront (if any) already happened historically — keep
+  // it — but no closing ever occurs, and a negative clawback is added.
+  if (sale.status === 'busted') {
+    const { upfront } = splitCommission(sale)
+
+    if (sale.contract_date && upfront > 0) {
+      const payDate = nextMonth7th(sale.contract_date)
+      if (payDate) {
+        payments.push({
+          date: payDate,
+          amount: upfront,
+          percent: 40,
+          type: 'upfront',
+          saleId: sale.id,
+          buyerName: sale.buyer_name,
+          salePrice: Number(sale.sale_price || 0),
+          contractDate: sale.contract_date,
+          closingDate: sale.closing_date,
+          status: sale.status,
+        })
+      }
+    }
+
+    const clawback = clawbackAmount(sale)
+    if (clawback > 0) {
+      payments.push({
+        date: clawbackDate(sale),
+        amount: -clawback,
+        percent: Number(sale.bust_percent || 0),
+        type: 'bust',
+        saleId: sale.id,
+        buyerName: sale.buyer_name,
+        salePrice: Number(sale.sale_price || 0),
+        contractDate: sale.contract_date,
+        closingDate: sale.closing_date,
+        status: sale.status,
+      })
+    }
+
+    return payments
+  }
+
   const { upfront, closing } = splitCommission(sale)
   if (upfront <= 0 && closing <= 0) return []
-
-  const payments = []
 
   // Upfront — based on contract date (full 40% of base 2%)
   if (sale.contract_date && upfront > 0) {
