@@ -22,15 +22,13 @@ const fmtCompact = (n) => {
   return `$${n}`
 }
 
-// Unit credit for a sale — weighted by split %, and reduced further by
-// bust % if the deal busted (e.g. 100% split, 40% bust = 0.6 units).
+// Unit credit for a sale — weighted by split % (e.g. 80% split = 0.8
+// units). A busted deal fully zeroes out its unit credit regardless of
+// bust % — the bust percentage only controls the dollar clawback amount,
+// not how many units get removed.
 function unitsForSale(sale) {
-  const splitFraction = (Number(sale.split) || 100) / 100
-  if (sale.status === 'busted') {
-    const bustFraction = (Number(sale.bust_percent) || 0) / 100
-    return splitFraction * (1 - bustFraction)
-  }
-  return splitFraction
+  if (sale.status === 'busted') return 0
+  return (Number(sale.split) || 100) / 100
 }
 
 const fmtUnits = (n) => {
