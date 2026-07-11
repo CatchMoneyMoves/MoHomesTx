@@ -91,12 +91,14 @@ function clawbackAmount(sale) {
 }
 
 /**
- * Best-available date for a clawback payment: closing_date, then
- * contract_date, then today. See note at top of file — precise bust_date
- * tracking isn't wired up yet.
+ * Clawback payment date: the 7th of the month AFTER the bust actually
+ * happened (sale.bust_date). Falls back to closing_date, then
+ * contract_date, then today only if bust_date wasn't recorded — those
+ * fallbacks are approximate and shouldn't be relied on for real deals.
  */
 function clawbackDate(sale) {
   return (
+    nextMonth7th(sale.bust_date) ||
     nextMonth7th(sale.closing_date) ||
     nextMonth7th(sale.contract_date) ||
     new Date()
