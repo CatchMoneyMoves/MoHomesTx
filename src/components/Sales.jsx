@@ -33,6 +33,7 @@ const emptyForm = {
   lead_source: '',
   notes: '',
   bust_percent: null,
+  bust_date: '',
 }
 
 export default function Sales({ sales, addSale, updateSale, deleteSale, defaultRate, salesFilter, clearFilter }) {
@@ -95,6 +96,7 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
       lead_source: sale.lead_source || '',
       notes: sale.notes || '',
       bust_percent: sale.bust_percent || null,
+      bust_date: sale.bust_date || '',
     })
     setEditingId(sale.id)
     setShowForm(true)
@@ -117,6 +119,7 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
         ...f,
         bust_percent: clearing ? null : pct,
         status: clearing ? 'under_contract' : 'busted',
+        bust_date: clearing ? '' : (f.bust_date || new Date().toISOString().slice(0, 10)),
       }
     })
   }
@@ -131,6 +134,7 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
       split: Number(form.split) || 100,
       closing_date: form.closing_date || null,
       bust_percent: form.status === 'busted' ? form.bust_percent : null,
+      bust_date: form.status === 'busted' ? (form.bust_date || null) : null,
     }
     const { error } = editingId
       ? await updateSale(editingId, payload)
@@ -730,13 +734,29 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
                   </button>
                 </div>
                 {form.bust_percent && (
-                  <div className="mt-3 pt-3 border-t border-red-200">
-                    <div className="text-[9px] uppercase tracking-wider text-red-700">Amount owed back</div>
-                    <div className="font-display text-xl font-medium text-red-700">
-                      -{fmt(previewClawback)}
+                  <div className="mt-3 pt-3 border-t border-red-200 space-y-3">
+                    <div>
+                      <div className="text-[9px] uppercase tracking-wider text-red-700">Amount owed back</div>
+                      <div className="font-display text-xl font-medium text-red-700">
+                        -{fmt(previewClawback)}
+                      </div>
+                      <div className="text-[10px] text-muted mt-0.5">
+                        {form.bust_percent}% of base commission ({fmt(previewBaseComm)})
+                      </div>
                     </div>
-                    <div className="text-[10px] text-muted mt-0.5">
-                      {form.bust_percent}% of base commission ({fmt(previewBaseComm)})
+                    <div>
+                      <label className="block text-[9px] uppercase tracking-wider text-red-700 font-medium mb-1">
+                        Bust Date
+                      </label>
+                      <input
+                        type="date"
+                        value={form.bust_date}
+                        onChange={(e) => setForm({ ...form, bust_date: e.target.value })}
+                        className="w-full px-3 py-2 bg-white border border-red-200 rounded-lg text-sm"
+                      />
+                      <p className="text-[10px] text-muted mt-1">
+                        Determines which month's check the clawback comes out of — deducted the month AFTER this date, on the 7th.
+                      </p>
                     </div>
                   </div>
                 )}
