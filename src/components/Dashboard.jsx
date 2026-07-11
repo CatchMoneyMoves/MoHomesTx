@@ -75,10 +75,22 @@ const PIPELINE_LABELS = {
 export default function Dashboard({ sales, accounts, settings, setActiveTab, goToSales }) {
   const [year, setYear] = useState(new Date().getFullYear())
   const [dateSource, setDateSource] = useState('contract_date')
-  const [period, setPeriod] = useState('monthly') // 'monthly' | 'quarterly'
+  const [period, setPeriod] = useState(() => {
+    try {
+      return localStorage.getItem('mohomestx_dashboardPeriod') || 'monthly'
+    } catch {
+      return 'monthly'
+    }
+  })
   const [expandedQuarters, setExpandedQuarters] = useState({})
   const [expandedMonths, setExpandedMonths] = useState({})
   const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('mohomestx_dashboardPeriod', period)
+    } catch {}
+  }, [period])
 
   // Track mobile viewport for compact axis labels (J F M A...)
   useEffect(() => {
