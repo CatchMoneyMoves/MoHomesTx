@@ -22,6 +22,22 @@ const fmtCompact = (n) => {
   return `$${n}`
 }
 
+// Unit credit for a sale — weighted by split %, and reduced further by
+// bust % if the deal busted (e.g. 100% split, 40% bust = 0.6 units).
+function unitsForSale(sale) {
+  const splitFraction = (Number(sale.split) || 100) / 100
+  if (sale.status === 'busted') {
+    const bustFraction = (Number(sale.bust_percent) || 0) / 100
+    return splitFraction * (1 - bustFraction)
+  }
+  return splitFraction
+}
+
+const fmtUnits = (n) => {
+  // Show whole numbers cleanly, fractional counts to 1 decimal
+  return Number.isInteger(n) ? String(n) : n.toFixed(1)
+}
+
 const QUARTER_MONTHS = {
   Q1: [0, 1, 2], Q2: [3, 4, 5], Q3: [6, 7, 8], Q4: [9, 10, 11],
 }
@@ -35,6 +51,7 @@ const STATUS_COLORS = {
   under_contract: { color: '#1d4ed8', bg: '#dbeafe' },
   closed: { color: '#047857', bg: '#d1fae5' },
   cancelled: { color: '#b91c1c', bg: '#fee2e2' },
+  busted: { color: '#b91c1c', bg: '#fee2e2' },
   // Legacy fallbacks
   pending_earnest: { color: '#1d4ed8', bg: '#dbeafe' },
   secured: { color: '#1d4ed8', bg: '#dbeafe' },
@@ -44,6 +61,7 @@ const STATUS_COLORS = {
 
 const STATUS_LABELS = {
   under_contract: 'Under Contract', closed: 'Closed', cancelled: 'Cancelled',
+  busted: 'Busted',
   pending_earnest: 'Under Contract', secured: 'Under Contract',
   under_construction: 'Under Contract', paid: 'Closed',
 }
@@ -53,6 +71,7 @@ const PIPELINE_LABELS = {
   pending_earnest: 'Under Contract', secured: 'Under Contract',
   under_construction: 'Under Contract', paid: 'Closed',
   cancelled: 'Cancelled',
+  busted: 'Busted',
 }
 
 export default function Dashboard({ sales, accounts, settings, setActiveTab, goToSales }) {
@@ -90,37 +109,41 @@ export default function Dashboard({ sales, accounts, settings, setActiveTab, goT
 
     const ytdCommission = yearSales.reduce((sum, s) => sum + Number(s.commission_amount || 0), 0)
     const ytdVolume = yearSales.reduce((sum, s) => sum + Number(s.sale_price || 0), 0)
+    const ytdUnits = yearSales.reduce((sum, s) => sum + unitsForSale(s), 0)
 
     const volumeGoal = Number(settings.annual_sales_volume_goal) || 10000000
     const volumePct = Math.min(100, (ytdVolume / volumeGoal) * 100)
 
     const quarters = {
-      Q1: { sales: [], volume: 0, commission: 0 },
-      Q2: { sales: [], volume: 0, commission: 0 },
-      Q3: { sales: [], volume: 0, commission: 0 },
-      Q4: { sales: [], volume: 0, commission: 0 },
+      Q1: { sales: [], volume: 0, commission: 0, units: 0 },
+      Q2: { sales: [], volume: 0, commission: 0, units: 0 },
+      Q3: { sales: [], volume: 0, commission: 0, units: 0 },
+      Q4: { sales: [], volume: 0, commission: 0, units: 0 },
     }
     const months = Array.from({ length: 12 }, (_, i) => ({
       idx: i,
       label: new Date(2000, i, 1).toLocaleString('en', { month: 'short' }),
       full: new Date(2000, i, 1).toLocaleString('en', { month: 'long' }),
-      sales: [], volume: 0, commission: 0,
+      sales: [], volume: 0, commission: 0, units: 0,
     }))
     yearSales.forEach((s) => {
       const m = new Date(s[dateSource]).getMonth()
       const q = m < 3 ? 'Q1' : m < 6 ? 'Q2' : m < 9 ? 'Q3' : 'Q4'
+      const u = unitsForSale(s)
       quarters[q].sales.push(s)
       quarters[q].volume += Number(s.sale_price || 0)
       quarters[q].commission += Number(s.commission_amount || 0)
+      quarters[q].units += u
       months[m].sales.push(s)
       months[m].volume += Number(s.sale_price || 0)
       months[m].commission += Number(s.commission_amount || 0)
+      months[m].units += u
     })
 
     const avgVolume = yearSales.length ? ytdVolume / yearSales.length : 0
 
     return {
-      yearSales, ytdCommission, ytdVolume,
+      yearSales, ytdCommission, ytdVolume, ytdUnits,
       volumeGoal, volumePct,
       quarters, months, avgVolume,
     }
@@ -169,7 +192,7 @@ export default function Dashboard({ sales, accounts, settings, setActiveTab, goT
       <div className="flex items-baseline justify-between">
         <div>
           <h2 className="font-display text-2xl font-medium">Dashboard</h2>
-          <p className="text-sm text-muted">{stats.yearSales.length} sales this year</p>
+          <p className="text-sm text-muted">{fmtUnits(stats.ytdUnits)} {stats.ytdUnits === 1 ? 'unit' : 'units'} this year</p>
         </div>
         <select
           value={year}
@@ -213,8 +236,8 @@ export default function Dashboard({ sales, accounts, settings, setActiveTab, goT
       <div className="grid grid-cols-2 gap-3">
         <KpiCard
           icon={<Home size={14} />}
-          label="Sales"
-          value={stats.yearSales.length}
+          label="Units"
+          value={fmtUnits(stats.ytdUnits)}
           suffix="YTD"
           onClick={() => setActiveTab && setActiveTab('sales')}
         />
@@ -338,7 +361,7 @@ export default function Dashboard({ sales, accounts, settings, setActiveTab, goT
                     <div className="text-left">
                       <div className="font-display text-lg font-medium">{m.full}</div>
                       <div className="text-xs text-muted">
-                        {m.sales.length} {m.sales.length === 1 ? 'sale' : 'sales'}
+                        {fmtUnits(m.units)} {m.units === 1 ? 'unit' : 'units'}
                       </div>
                     </div>
                   </div>
@@ -410,7 +433,7 @@ export default function Dashboard({ sales, accounts, settings, setActiveTab, goT
                   <div className="text-left">
                     <div className="font-display text-lg font-medium">{q}</div>
                     <div className="text-xs text-muted">
-                      {data.sales.length} {data.sales.length === 1 ? 'sale' : 'sales'}
+                      {fmtUnits(data.units)} {data.units === 1 ? 'unit' : 'units'}
                     </div>
                   </div>
                 </div>
