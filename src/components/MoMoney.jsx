@@ -235,12 +235,12 @@ export default function MoMoney({
                           )}
                         </div>
                         <div className="text-[11px] text-subtle">
-                          {p.percent}% {p.type === 'upfront' ? 'upfront' : 'closing'}
+                          {p.percent}% {p.type === 'upfront' ? 'upfront' : p.type === 'bust' ? 'clawback' : 'closing'}
                         </div>
                       </div>
                       <div className="text-right shrink-0">
-                        <div className="font-display text-base font-medium text-green-700">
-                          +{fmt(p.amount)}
+                        <div className={`font-display text-base font-medium ${p.amount < 0 ? 'text-red-700' : 'text-green-700'}`}>
+                          {p.amount < 0 ? '-' : '+'}{fmt(Math.abs(p.amount))}
                         </div>
                       </div>
                     </div>
@@ -288,12 +288,12 @@ export default function MoMoney({
                           )}
                         </div>
                         <div className="text-[11px] text-subtle">
-                          {p.percent}% {p.type === 'upfront' ? 'upfront' : 'closing'} · paid {p.date.toLocaleString('en', { month: 'long', year: 'numeric' })}
+                          {p.percent}% {p.type === 'upfront' ? 'upfront' : p.type === 'bust' ? 'clawback' : 'closing'} · paid {p.date.toLocaleString('en', { month: 'long', year: 'numeric' })}
                         </div>
                       </div>
                       <div className="text-right shrink-0">
-                        <div className="font-medium text-sm text-ink">
-                          {fmt(p.amount)}
+                        <div className={`font-medium text-sm ${p.amount < 0 ? 'text-red-700' : 'text-ink'}`}>
+                          {p.amount < 0 ? '-' : ''}{fmt(Math.abs(p.amount))}
                         </div>
                       </div>
                     </div>
