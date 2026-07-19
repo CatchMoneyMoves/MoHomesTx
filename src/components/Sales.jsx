@@ -38,6 +38,7 @@ const emptyForm = {
 
 export default function Sales({ sales, addSale, updateSale, deleteSale, defaultRate, salesFilter, clearFilter }) {
   const [showForm, setShowForm] = useState(false)
+  const [showBustSection, setShowBustSection] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
@@ -72,6 +73,7 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
   const openAdd = () => {
     setForm({ ...emptyForm, commission_rate: defaultRate || 2.0 })
     setEditingId(null)
+    setShowBustSection(false)
     setShowForm(true)
   }
 
@@ -99,6 +101,7 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
       bust_date: sale.bust_date || '',
     })
     setEditingId(sale.id)
+    setShowBustSection(status === 'busted')
     setShowForm(true)
   }
 
@@ -702,63 +705,83 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
                 </div>
               </Field>
 
-              <div className="border border-red-200 rounded-xl p-4 bg-red-50/40">
-                <div className="text-[10px] uppercase tracking-widest text-red-700 font-medium mb-1">
-                  Deal Busted?
-                </div>
-                <p className="text-[11px] text-muted mb-3">
-                  Buyer backed out after upfront was paid — mark how much of the base commission has to be paid back.
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleBustToggle(20)}
-                    className={`px-3 py-2.5 rounded-lg text-sm font-medium transition border ${
-                      form.bust_percent === 20
-                        ? 'bg-red-700 text-white border-red-700'
-                        : 'bg-white text-muted border-line'
-                    }`}
-                  >
-                    20% Bust
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleBustToggle(40)}
-                    className={`px-3 py-2.5 rounded-lg text-sm font-medium transition border ${
-                      form.bust_percent === 40
-                        ? 'bg-red-700 text-white border-red-700'
-                        : 'bg-white text-muted border-line'
-                    }`}
-                  >
-                    40% Bust
-                  </button>
-                </div>
-                {form.bust_percent && (
-                  <div className="mt-3 pt-3 border-t border-red-200 space-y-3">
-                    <div>
-                      <div className="text-[9px] uppercase tracking-wider text-red-700">Amount owed back</div>
-                      <div className="font-display text-xl font-medium text-red-700">
-                        -{fmt(previewClawback)}
-                      </div>
-                      <div className="text-[10px] text-muted mt-0.5">
-                        {form.bust_percent}% of base commission ({fmt(previewBaseComm)})
-                      </div>
+              <div className="border border-line rounded-xl bg-cream/40 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowBustSection((v) => !v)}
+                  className="w-full flex items-center justify-between p-4"
+                >
+                  <div className="text-left">
+                    <div className="text-[10px] uppercase tracking-widest text-muted font-medium">
+                      Deal Busted?
                     </div>
+                    {!showBustSection && form.bust_percent && (
+                      <div className="text-[11px] text-red-700 font-medium mt-0.5">
+                        {form.bust_percent}% bust marked · -{fmt(previewClawback)}
+                      </div>
+                    )}
+                  </div>
+                  <span className={`text-muted transition-transform ${showBustSection ? 'rotate-90' : ''}`}>
+                    ›
+                  </span>
+                </button>
+                {showBustSection && (
+                  <div className="px-4 pb-4">
+                    <p className="text-[11px] text-muted mb-3">
+                      Buyer backed out after upfront was paid — mark how much of the base commission has to be paid back.
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleBustToggle(20)}
+                        className={`px-3 py-2.5 rounded-lg text-sm font-medium transition border ${
+                          form.bust_percent === 20
+                            ? 'bg-ink text-cream border-ink'
+                            : 'bg-white text-muted border-line'
+                        }`}
+                      >
+                        20% Bust
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleBustToggle(40)}
+                        className={`px-3 py-2.5 rounded-lg text-sm font-medium transition border ${
+                          form.bust_percent === 40
+                            ? 'bg-ink text-cream border-ink'
+                            : 'bg-white text-muted border-line'
+                        }`}
+                      >
+                        40% Bust
+                      </button>
+                    </div>
+                    {form.bust_percent && (
+                      <div className="mt-3 pt-3 border-t border-line space-y-3">
+                        <div>
+                          <div className="text-[9px] uppercase tracking-wider text-muted">Amount owed back</div>
+                          <div className="font-display text-xl font-medium text-red-700">
+                            -{fmt(previewClawback)}
+                          </div>
+                          <div className="text-[10px] text-muted mt-0.5">
+                            {form.bust_percent}% of base commission ({fmt(previewBaseComm)})
+                          </div>
+                        </div>
                     <div>
-                      <label className="block text-[9px] uppercase tracking-wider text-red-700 font-medium mb-1">
+                      <label className="block text-[9px] uppercase tracking-wider text-muted font-medium mb-1">
                         Bust Date
                       </label>
                       <input
                         type="date"
                         value={form.bust_date}
                         onChange={(e) => setForm({ ...form, bust_date: e.target.value })}
-                        className="w-full px-3 py-2 bg-white border border-red-200 rounded-lg text-sm"
+                        className="w-full px-3 py-2 bg-white border border-line rounded-lg text-sm"
                       />
                       <p className="text-[10px] text-muted mt-1">
                         Determines which month's check the clawback comes out of — deducted the month AFTER this date, on the 7th.
                       </p>
                     </div>
                   </div>
+                )}
+                </div>
                 )}
               </div>
 
