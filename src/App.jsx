@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
-import { LayoutDashboard, Home, Wallet, Settings as SettingsIcon, Loader2 } from 'lucide-react'
+import { LayoutDashboard, Home, Wallet, Settings as SettingsIcon, Loader2, Sun, Moon } from 'lucide-react'
 
 import { useAuth } from './hooks/useAuth'
 import { useSales } from './hooks/useSales'
 import { useAccounts } from './hooks/useAccounts'
 import { useTransactions } from './hooks/useTransactions'
 import { useSettings } from './hooks/useSettings'
+import { useTheme } from './hooks/useTheme'
 
 import Login from './components/Login'
 import Dashboard from './components/Dashboard'
@@ -138,6 +139,7 @@ function AuthedApp({ user, activeTab, setActiveTab, salesFilter, setSalesFilter 
   const { accounts, addAccount, updateAccount, deleteAccount } = useAccounts(user)
   const { transactions, addTransaction, deleteTransaction } = useTransactions(user)
   const { settings, updateSettings } = useSettings(user)
+  const { theme, toggle: toggleTheme } = useTheme()
 
   // Switching tabs from nav clears any active filter
   const handleTabChange = (tab) => {
@@ -160,7 +162,7 @@ function AuthedApp({ user, activeTab, setActiveTab, salesFilter, setSalesFilter 
             className="flex items-center gap-2.5 hover:opacity-70 transition"
             aria-label="Go to dashboard"
           >
-            <div className="w-7 h-7 rounded-md bg-ink flex items-center justify-center">
+            <div className="w-7 h-7 rounded-md bg-panel flex items-center justify-center">
               <span className="font-display text-lg font-semibold text-gold leading-none -mt-0.5">M</span>
             </div>
             <span className="font-display text-base font-medium tracking-tight">MoHomesTx</span>
@@ -173,7 +175,7 @@ function AuthedApp({ user, activeTab, setActiveTab, salesFilter, setSalesFilter 
                   key={t.id}
                   onClick={() => handleTabChange(t.id)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-                    activeTab === t.id ? 'bg-ink text-cream' : 'text-muted hover:bg-white'
+                    activeTab === t.id ? 'bg-panel text-onpanel' : 'text-muted hover:bg-white'
                   }`}
                 >
                   <Icon size={14} />
@@ -181,6 +183,13 @@ function AuthedApp({ user, activeTab, setActiveTab, salesFilter, setSalesFilter 
                 </button>
               )
             })}
+            <button
+              onClick={toggleTheme}
+              aria-label="Toggle dark mode"
+              className="ml-1 p-1.5 rounded-lg text-muted hover:bg-white transition"
+            >
+              {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+            </button>
           </nav>
         </div>
       </header>
@@ -193,10 +202,17 @@ function AuthedApp({ user, activeTab, setActiveTab, salesFilter, setSalesFilter 
             className="flex items-center gap-2 hover:opacity-70 transition"
             aria-label="Go to dashboard"
           >
-            <div className="w-7 h-7 rounded-md bg-ink flex items-center justify-center">
+            <div className="w-7 h-7 rounded-md bg-panel flex items-center justify-center">
               <span className="font-display text-lg font-semibold text-gold leading-none -mt-0.5">M</span>
             </div>
             <span className="font-display text-base font-medium tracking-tight">MoHomesTx</span>
+          </button>
+          <button
+            onClick={toggleTheme}
+            aria-label="Toggle dark mode"
+            className="p-2 rounded-lg text-muted hover:bg-white transition"
+          >
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
         </div>
       </header>

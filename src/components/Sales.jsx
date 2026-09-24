@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react'
 import { Plus, Edit2, Trash2, X, Check } from 'lucide-react'
 
 const STATUS_OPTIONS = [
-  { value: 'under_contract', label: 'Under Contract', color: '#1d4ed8', bg: '#dbeafe' },
-  { value: 'closed', label: 'Closed', color: '#047857', bg: '#d1fae5' },
-  { value: 'busted', label: 'Busted', color: '#b91c1c', bg: '#fee2e2' },
+  { value: 'under_contract', label: 'Under Contract', color: 'rgb(var(--st-blue-fg))', bg: 'rgb(var(--st-blue-bg))' },
+  { value: 'closed', label: 'Closed', color: 'rgb(var(--st-green-fg))', bg: 'rgb(var(--st-green-bg))' },
+  { value: 'busted', label: 'Busted', color: 'rgb(var(--st-red-fg))', bg: 'rgb(var(--st-red-bg))' },
 ]
 
 // Base commission rate (%). Anything above this (e.g. the 0.5% on Dirt) is a
@@ -371,7 +371,7 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
           </select>
           <button
             onClick={openAdd}
-            className="flex items-center gap-1.5 px-4 py-2 bg-ink text-cream rounded-lg text-sm font-medium hover:bg-ink/90 transition"
+            className="flex items-center gap-1.5 px-4 py-2 bg-panel text-onpanel rounded-lg text-sm font-medium hover:bg-panel/90 transition"
           >
             <Plus size={14} /> Add Sale
           </button>
@@ -404,7 +404,7 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
             return (
               <div
                 key={group.key}
-                className="bg-[#f2f0e9] border border-line/70 rounded-2xl p-5"
+                className="bg-alt border border-line/70 rounded-2xl p-5"
               >
                 {/* Month section header */}
                 <button
@@ -527,7 +527,7 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
 
       {showForm && (
         <div
-          className="fixed inset-0 bg-ink/40 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4"
           onClick={() => setShowForm(false)}
         >
           <div
@@ -594,7 +594,7 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
                     onClick={() => handleBuildTypeChange('inventory')}
                     className={`px-3 py-2.5 rounded-lg text-sm font-medium transition border ${
                       form.build_type === 'inventory'
-                        ? 'bg-ink text-cream border-ink'
+                        ? 'bg-panel text-onpanel border-panel'
                         : 'bg-white text-muted border-line'
                     }`}
                   >
@@ -605,7 +605,7 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
                     onClick={() => handleBuildTypeChange('dirt')}
                     className={`px-3 py-2.5 rounded-lg text-sm font-medium transition border ${
                       form.build_type === 'dirt'
-                        ? 'bg-ink text-cream border-ink'
+                        ? 'bg-panel text-onpanel border-panel'
                         : 'bg-white text-muted border-line'
                     }`}
                   >
@@ -645,7 +645,7 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
                       onClick={() => setForm({ ...form, split: s })}
                       className={`px-3 py-2.5 rounded-lg text-sm font-medium transition border ${
                         form.split === s
-                          ? 'bg-ink text-cream border-ink'
+                          ? 'bg-panel text-onpanel border-panel'
                           : 'bg-white text-muted border-line'
                       }`}
                     >
@@ -695,7 +695,7 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
                       onClick={() => setForm({ ...form, status: s.value, bust_percent: null })}
                       className={`px-3 py-2.5 rounded-lg text-sm font-medium transition border ${
                         form.status === s.value
-                          ? 'bg-ink text-cream border-ink'
+                          ? 'bg-panel text-onpanel border-panel'
                           : 'bg-white text-muted border-line'
                       }`}
                     >
@@ -736,7 +736,7 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
                         onClick={() => handleBustToggle(20)}
                         className={`px-3 py-2.5 rounded-lg text-sm font-medium transition border ${
                           form.bust_percent === 20
-                            ? 'bg-ink text-cream border-ink'
+                            ? 'bg-panel text-onpanel border-panel'
                             : 'bg-white text-muted border-line'
                         }`}
                       >
@@ -747,7 +747,7 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
                         onClick={() => handleBustToggle(40)}
                         className={`px-3 py-2.5 rounded-lg text-sm font-medium transition border ${
                           form.bust_percent === 40
-                            ? 'bg-ink text-cream border-ink'
+                            ? 'bg-panel text-onpanel border-panel'
                             : 'bg-white text-muted border-line'
                         }`}
                       >
@@ -843,7 +843,7 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 px-4 py-3 bg-ink text-cream rounded-lg text-sm font-medium hover:bg-ink/90 disabled:opacity-50 transition flex items-center justify-center gap-1.5"
+                  className="flex-1 px-4 py-3 bg-panel text-onpanel rounded-lg text-sm font-medium hover:bg-panel/90 disabled:opacity-50 transition flex items-center justify-center gap-1.5"
                 >
                   <Check size={14} />
                   {saving ? 'Saving…' : editingId ? 'Save Changes' : 'Add Sale'}

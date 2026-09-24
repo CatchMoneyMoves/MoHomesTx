@@ -121,7 +121,7 @@ export default function Settings({ settings, updateSettings, user }) {
         <button
           type="submit"
           disabled={saving}
-          className="w-full py-3 bg-ink text-cream rounded-lg text-sm font-medium hover:bg-ink/90 disabled:opacity-50 transition flex items-center justify-center gap-1.5"
+          className="w-full py-3 bg-panel text-onpanel rounded-lg text-sm font-medium hover:bg-panel/90 disabled:opacity-50 transition flex items-center justify-center gap-1.5"
         >
           <Save size={14} />
           {saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save Settings'}
@@ -166,7 +166,7 @@ export default function Settings({ settings, updateSettings, user }) {
           type="button"
           onClick={handleChangePassword}
           disabled={passwordSaving}
-          className="w-full py-3 bg-ink text-cream rounded-lg text-sm font-medium hover:bg-ink/90 disabled:opacity-50 transition flex items-center justify-center gap-1.5"
+          className="w-full py-3 bg-panel text-onpanel rounded-lg text-sm font-medium hover:bg-panel/90 disabled:opacity-50 transition flex items-center justify-center gap-1.5"
         >
           <Key size={14} />
           {passwordSaving ? 'Updating…' : passwordChanged ? 'Password Updated ✓' : 'Update Password'}

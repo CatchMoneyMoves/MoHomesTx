@@ -3,23 +3,58 @@
 @tailwind utilities;
 
 :root {
-  --cream: #fafaf7;
-  --ink: #0a0a0f;
-  --gold: #d4af37;
-  --gold-dark: #b8860b;
-  --gold-soft: #fefce8;
-  --line: #e7e5e0;
-  --muted: #57534e;
-  --subtle: #a8a29e;
+  color-scheme: light;
+  --cream: 244 247 250;      /* page bg      #f4f7fa */
+  --card: 255 255 255;       /* cards/inputs #ffffff */
+  --alt: 234 240 245;        /* alt surface  #eaf0f5 */
+  --ink: 11 15 20;           /* text         #0b0f14 */
+  --panel: 11 15 20;         /* dark panels  #0b0f14 */
+  --onpanel: 244 247 250;    /* text on panel */
+  --gold: 0 119 192;         /* Magic blue   #0077c0 */
+  --gold-dark: 0 90 148;     /* blue text    #005a94 */
+  --gold-soft: 227 241 251;  /* blue tint    #e3f1fb */
+  --line: 221 229 236;       /* borders      #dde5ec */
+  --muted: 58 71 86;         /* #3a4756 */
+  --subtle: 132 147 161;     /* #8493a1 */
+  /* status chips */
+  --st-blue-fg: 29 78 216;   --st-blue-bg: 219 234 254;
+  --st-green-fg: 4 120 87;   --st-green-bg: 209 250 229;
+  --st-red-fg: 185 28 28;    --st-red-bg: 254 226 226;
 }
+
+.dark {
+  color-scheme: dark;
+  --cream: 0 0 0;            /* #000000 */
+  --card: 13 16 20;          /* #0d1014 */
+  --alt: 10 12 15;           /* #0a0c0f */
+  --ink: 237 237 237;        /* #ededed */
+  --panel: 10 42 66;         /* deep Magic blue panel #0a2a42 */
+  --onpanel: 244 247 250;
+  --gold: 43 155 224;        /* #2b9be0 */
+  --gold-dark: 91 181 238;   /* #5bb5ee */
+  --gold-soft: 12 37 54;     /* #0c2536 */
+  --line: 30 39 48;          /* #1e2730 */
+  --muted: 163 163 163;      /* #a3a3a3 */
+  --subtle: 127 139 150;     /* #7f8b96 */
+  --st-blue-fg: 96 165 250;  --st-blue-bg: 23 37 84;
+  --st-green-fg: 74 222 128; --st-green-bg: 5 46 22;
+  --st-red-fg: 248 113 113;  --st-red-bg: 69 10 10;
+}
+
+/* Dark-mode overrides for Tailwind's built-in red/green utilities used in components */
+.dark .text-red-700, .dark .text-red-600 { color: #f87171; }
+.dark .text-green-700 { color: #4ade80; }
+.dark .bg-red-50 { background-color: rgba(248, 113, 113, 0.12); }
+.dark .bg-green-50 { background-color: rgba(74, 222, 128, 0.12); }
+.dark .border-red-200, .dark .border-red-300 { border-color: rgba(248, 113, 113, 0.35); }
 
 * {
   -webkit-tap-highlight-color: transparent;
 }
 
 html, body {
-  background: var(--cream);
-  color: var(--ink);
+  background: rgb(var(--cream));
+  color: rgb(var(--ink));
   font-family: 'Inter Tight', sans-serif;
   font-feature-settings: 'ss01', 'cv11';
   -webkit-font-smoothing: antialiased;
@@ -32,7 +67,7 @@ input, select, textarea, button {
 
 input:focus, select:focus, textarea:focus {
   outline: none;
-  border-color: var(--gold);
+  border-color: rgb(var(--gold));
 }
 
 /* Number inputs — remove spinners */
@@ -54,11 +89,11 @@ input[type=number] {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--line);
+  background: rgb(var(--line));
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--subtle);
+  background: rgb(var(--subtle));
 }
 
 /* Safe area for iPhone notch */

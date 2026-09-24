@@ -45,7 +45,7 @@ export default function Login() {
       <div className="w-full max-w-sm">
         {/* Logo + Brand */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-ink mb-5">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-panel mb-5">
             <span className="font-display text-4xl font-semibold text-gold leading-none -mt-1">M</span>
           </div>
           <h1 className="font-display text-3xl font-medium tracking-tight text-ink">
@@ -90,7 +90,7 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-ink text-cream rounded-lg text-sm font-medium tracking-wide flex items-center justify-center gap-2 hover:bg-ink/90 disabled:opacity-50 transition"
+            className="w-full py-3 bg-panel text-onpanel rounded-lg text-sm font-medium tracking-wide flex items-center justify-center gap-2 hover:bg-panel/90 disabled:opacity-50 transition"
           >
             {loading ? (
               <Loader2 size={16} className="animate-spin" />

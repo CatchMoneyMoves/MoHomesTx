@@ -108,20 +108,20 @@ export default function MoMoney({
       </div>
 
       {/* Hero: Upcoming (primary), YTD Collected (secondary) */}
-      <div className="bg-ink text-cream rounded-2xl p-6">
+      <div className="bg-panel text-onpanel rounded-2xl p-6">
         <div className="text-xs uppercase tracking-widest text-gold mb-1">
           Upcoming Commission
         </div>
         <div className="font-display text-4xl md:text-5xl font-medium tracking-tight text-gold">
           {fmt(upcomingTotal)}
         </div>
-        <div className="mt-4 pt-4 border-t border-cream/10 flex items-baseline justify-between flex-wrap gap-2">
+        <div className="mt-4 pt-4 border-t border-onpanel/10 flex items-baseline justify-between flex-wrap gap-2">
           <div>
-            <div className="text-[10px] text-cream/60 uppercase tracking-widest">YTD Collected</div>
+            <div className="text-[10px] text-onpanel/60 uppercase tracking-widest">YTD Collected</div>
             <div className="font-display text-xl font-medium">{fmt(collectedTotal)}</div>
           </div>
           <div className="text-right">
-            <div className="text-[10px] text-cream/60 uppercase tracking-widest">Expected</div>
+            <div className="text-[10px] text-onpanel/60 uppercase tracking-widest">Expected</div>
             <div className="text-sm font-medium">{upcoming.length} payment{upcoming.length !== 1 ? 's' : ''}</div>
           </div>
         </div>
@@ -150,25 +150,25 @@ export default function MoMoney({
                     axisLine={false}
                     tickLine={false}
                     interval={0}
-                    tick={{ fontSize: 10, fill: '#57534e' }}
+                    tick={{ fontSize: 10, fill: 'rgb(var(--muted))' }}
                   />
                   <YAxis
                     width={22}
                     axisLine={false} tickLine={false}
-                    tick={{ fontSize: 10, fill: '#a8a29e' }}
+                    tick={{ fontSize: 10, fill: 'rgb(var(--subtle))' }}
                     tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}
                   />
               <Tooltip
-                cursor={{ fill: '#fefce8' }}
+                cursor={{ fill: 'rgb(var(--gold-soft))' }}
                 content={({ active, payload }) => {
                   if (!active || !payload || !payload.length) return null
                   const d = payload[0].payload
                   if (!d.amount) return null
                   return (
-                    <div className="bg-ink text-cream px-3 py-2 rounded-lg shadow-lg text-xs">
+                    <div className="bg-panel text-onpanel px-3 py-2 rounded-lg shadow-lg text-xs">
                       <div className="font-medium">{d.label} {d.year}</div>
                       <div className="font-display text-base text-gold mt-0.5">{fmt(d.amount)}</div>
-                      <div className="text-[10px] text-cream/60 mt-1">
+                      <div className="text-[10px] text-onpanel/60 mt-1">
                         {d.count} payment{d.count !== 1 ? 's' : ''} · click to view
                       </div>
                     </div>
@@ -177,7 +177,7 @@ export default function MoMoney({
               />
               <Bar
                 dataKey="amount"
-                fill="#d4af37"
+                fill="rgb(var(--gold))"
                 radius={[6, 6, 0, 0]}
                 cursor="pointer"
                 onClick={(data) => {
@@ -189,7 +189,7 @@ export default function MoMoney({
                   dataKey="amount"
                   position="top"
                   formatter={(v) => v > 0 ? (v >= 1000 ? `$${(v / 1000).toFixed(1)}k` : `$${v.toFixed(0)}`) : ''}
-                  style={{ fontSize: 10, fill: '#0a0a0f', fontWeight: 600 }}
+                  style={{ fontSize: 10, fill: 'rgb(var(--ink))', fontWeight: 600 }}
                 />
               </Bar>
             </BarChart>

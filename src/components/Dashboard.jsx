@@ -46,15 +46,15 @@ const MONTH_NAMES = [
 ]
 
 const STATUS_COLORS = {
-  under_contract: { color: '#1d4ed8', bg: '#dbeafe' },
-  closed: { color: '#047857', bg: '#d1fae5' },
-  cancelled: { color: '#b91c1c', bg: '#fee2e2' },
-  busted: { color: '#b91c1c', bg: '#fee2e2' },
+  under_contract: { color: 'rgb(var(--st-blue-fg))', bg: 'rgb(var(--st-blue-bg))' },
+  closed: { color: 'rgb(var(--st-green-fg))', bg: 'rgb(var(--st-green-bg))' },
+  cancelled: { color: 'rgb(var(--st-red-fg))', bg: 'rgb(var(--st-red-bg))' },
+  busted: { color: 'rgb(var(--st-red-fg))', bg: 'rgb(var(--st-red-bg))' },
   // Legacy fallbacks
-  pending_earnest: { color: '#1d4ed8', bg: '#dbeafe' },
-  secured: { color: '#1d4ed8', bg: '#dbeafe' },
-  under_construction: { color: '#1d4ed8', bg: '#dbeafe' },
-  paid: { color: '#047857', bg: '#d1fae5' },
+  pending_earnest: { color: 'rgb(var(--st-blue-fg))', bg: 'rgb(var(--st-blue-bg))' },
+  secured: { color: 'rgb(var(--st-blue-fg))', bg: 'rgb(var(--st-blue-bg))' },
+  under_construction: { color: 'rgb(var(--st-blue-fg))', bg: 'rgb(var(--st-blue-bg))' },
+  paid: { color: 'rgb(var(--st-green-fg))', bg: 'rgb(var(--st-green-bg))' },
 }
 
 const STATUS_LABELS = {
@@ -215,26 +215,26 @@ export default function Dashboard({ sales, accounts, settings, setActiveTab, goT
         </select>
       </div>
 
-      <div className="bg-ink text-cream rounded-2xl p-6 md:p-8">
+      <div className="bg-panel text-onpanel rounded-2xl p-6 md:p-8">
         <div className="flex items-baseline justify-between mb-1">
           <span className="text-xs tracking-widest text-gold uppercase">
             YTD Sales Volume
           </span>
-          <span className="text-xs text-cream/60">{year} · {weeksLeft} {weeksLeft === 1 ? 'week' : 'weeks'} left</span>
+          <span className="text-xs text-onpanel/60">{year} · {weeksLeft} {weeksLeft === 1 ? 'week' : 'weeks'} left</span>
         </div>
         <div className="font-display text-5xl md:text-6xl font-medium tracking-tight">
           {fmtCompact(stats.ytdVolume)}
         </div>
         <div className="mt-5">
           <div className="flex items-baseline justify-between mb-2">
-            <span className="text-xs text-cream/60">
+            <span className="text-xs text-onpanel/60">
               Goal: {fmtCompact(stats.volumeGoal)}
             </span>
             <span className="text-xs font-medium text-gold">
               {stats.volumePct.toFixed(1)}%
             </span>
           </div>
-          <div className="h-1.5 bg-cream/10 rounded-full overflow-hidden">
+          <div className="h-1.5 bg-onpanel/10 rounded-full overflow-hidden">
             <div
               className="h-full bg-gold transition-all duration-500"
               style={{ width: `${stats.volumePct}%` }}
@@ -262,7 +262,7 @@ export default function Dashboard({ sales, accounts, settings, setActiveTab, goT
         <button
           onClick={() => setPeriod('monthly')}
           className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition ${
-            period === 'monthly' ? 'bg-ink text-cream' : 'text-muted hover:bg-cream'
+            period === 'monthly' ? 'bg-panel text-onpanel' : 'text-muted hover:bg-cream'
           }`}
         >
           <Calendar size={12} /> Monthly
@@ -270,7 +270,7 @@ export default function Dashboard({ sales, accounts, settings, setActiveTab, goT
         <button
           onClick={() => setPeriod('quarterly')}
           className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition ${
-            period === 'quarterly' ? 'bg-ink text-cream' : 'text-muted hover:bg-cream'
+            period === 'quarterly' ? 'bg-panel text-onpanel' : 'text-muted hover:bg-cream'
           }`}
         >
           <Calendar size={12} /> Quarterly
@@ -295,18 +295,18 @@ export default function Dashboard({ sales, accounts, settings, setActiveTab, goT
         ) : (
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={chartData} margin={{ top: 28, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e7e5e0" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--line))" vertical={false} />
               <XAxis
                 dataKey="label"
                 axisLine={false}
                 tickLine={false}
-                tick={{ fontSize: 11, fill: '#57534e' }}
+                tick={{ fontSize: 11, fill: 'rgb(var(--muted))' }}
                 interval={0}
                 tickFormatter={formatXAxisTick}
               />
               <YAxis
                 axisLine={false} tickLine={false}
-                tick={{ fontSize: 10, fill: '#a8a29e' }}
+                tick={{ fontSize: 10, fill: 'rgb(var(--subtle))' }}
                 tickFormatter={(v) => {
                   if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`
                   if (v >= 1_000) return `${v / 1_000}k`
@@ -314,16 +314,16 @@ export default function Dashboard({ sales, accounts, settings, setActiveTab, goT
                 }}
               />
               <Tooltip
-                cursor={{ fill: '#fefce8' }}
+                cursor={{ fill: 'rgb(var(--gold-soft))' }}
                 content={({ active, payload }) => {
                   if (!active || !payload || !payload.length) return null
                   const d = payload[0].payload
                   if (!d.value) return null
                   return (
-                    <div className="bg-ink text-cream px-3 py-2 rounded-lg shadow-lg text-xs">
+                    <div className="bg-panel text-onpanel px-3 py-2 rounded-lg shadow-lg text-xs">
                       <div className="font-medium">{d.label}</div>
                       <div className="font-display text-base text-gold mt-0.5">{fmt(d.value)}</div>
-                      <div className="text-[10px] text-cream/60 mt-1">
+                      <div className="text-[10px] text-onpanel/60 mt-1">
                         {d.sales} {d.sales === 1 ? 'sale' : 'sales'}{period === 'monthly' ? ' · click to view' : ''}
                       </div>
                     </div>
@@ -332,7 +332,7 @@ export default function Dashboard({ sales, accounts, settings, setActiveTab, goT
               />
               <Bar
                 dataKey="value"
-                fill="#d4af37"
+                fill="rgb(var(--gold))"
                 radius={[6, 6, 0, 0]}
                 cursor={period === 'monthly' ? 'pointer' : 'default'}
                 onClick={handleBarClick}
@@ -346,7 +346,7 @@ export default function Dashboard({ sales, accounts, settings, setActiveTab, goT
                     if (v >= 1_000) return `$${(v / 1_000).toFixed(1)}k`
                     return `$${v.toFixed(0)}`
                   }}
-                  style={{ fontSize: period === 'monthly' ? 9 : 11, fill: '#0a0a0f', fontWeight: 600 }}
+                  style={{ fontSize: period === 'monthly' ? 9 : 11, fill: 'rgb(var(--ink))', fontWeight: 600 }}
                 />
               </Bar>
             </BarChart>
