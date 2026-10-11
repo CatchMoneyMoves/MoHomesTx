@@ -288,7 +288,7 @@ export default function MoMoney({
                           )}
                         </div>
                         <div className="text-[11px] text-subtle">
-                          {p.percent}% {p.type === 'upfront' ? 'upfront' : p.type === 'bust' ? 'clawback' : 'closing'} · paid {p.date.toLocaleString('en', { month: 'long', year: 'numeric' })}
+                          {p.percent}% {p.type === 'upfront' ? 'upfront' : p.type === 'bust' ? 'clawback' : 'closing'} · paid {p.date.toLocaleString('en', { month: 'short', day: 'numeric', year: 'numeric' })}
                         </div>
                       </div>
                       <div className="text-right shrink-0">
