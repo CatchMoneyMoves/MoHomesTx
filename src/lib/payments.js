@@ -1,6 +1,6 @@
 // Perry payment schedule logic
-// Contract signed month X → 40% paid 7th of month X+1
-// Closing in month Y → 60% paid 7th of month Y+1
+// Contract signed → 40% paid on that date's pay period (see payDateFor)
+// Closing → 60% paid on the closing date's pay period
 //
 // Commission model:
 //   - Upfront (40%) is ALWAYS the full 40% of the BASE 2% commission.
@@ -23,19 +23,25 @@
 //     bust_date column later if you want this to be precise rather than
 //     inferred.
 
-const PAY_DAY = 7
 const BASE_RATE = 2 // % — base commission. Anything above is bonus, loads onto close.
 
-function nextMonth7th(dateStr) {
+// Semi-monthly pay periods:
+//   1st–15th  → paid the 22nd of the SAME month
+//   16th–end  → paid the 7th of the NEXT month
+const FIRST_HALF_PAY_DAY = 22
+const SECOND_HALF_PAY_DAY = 7
+
+function payDateFor(dateStr) {
   if (!dateStr) return null
   // Parse as local date (not UTC) to avoid timezone-off-by-one-day bug.
   // new Date('YYYY-MM-DD') parses as UTC midnight, which in US timezones
-  // rolls back to the previous day — causing the wrong month to be used.
+  // rolls back to the previous day — causing the wrong period to be used.
   const [year, month, day] = dateStr.split('-').map(Number)
   if (!year || !month || !day) return null
-  // month is 1-indexed from the string; Date is 0-indexed, so passing `month`
-  // directly advances one month automatically.
-  return new Date(year, month, PAY_DAY)
+  // month is 1-indexed from the string; Date is 0-indexed.
+  if (day <= 15) return new Date(year, month - 1, FIRST_HALF_PAY_DAY)
+  // Passing `month` (1-indexed) advances one month; Dec rolls into Jan.
+  return new Date(year, month, SECOND_HALF_PAY_DAY)
 }
 
 /**
@@ -91,16 +97,16 @@ function clawbackAmount(sale) {
 }
 
 /**
- * Clawback payment date: the 7th of the month AFTER the bust actually
+ * Clawback payment date: the pay date for the period the bust actually
  * happened (sale.bust_date). Falls back to closing_date, then
  * contract_date, then today only if bust_date wasn't recorded — those
  * fallbacks are approximate and shouldn't be relied on for real deals.
  */
 function clawbackDate(sale) {
   return (
-    nextMonth7th(sale.bust_date) ||
-    nextMonth7th(sale.closing_date) ||
-    nextMonth7th(sale.contract_date) ||
+    payDateFor(sale.bust_date) ||
+    payDateFor(sale.closing_date) ||
+    payDateFor(sale.contract_date) ||
     new Date()
   )
 }
@@ -119,7 +125,7 @@ export function paymentsFromSale(sale) {
     const { upfront } = splitCommission(sale)
 
     if (sale.contract_date && upfront > 0) {
-      const payDate = nextMonth7th(sale.contract_date)
+      const payDate = payDateFor(sale.contract_date)
       if (payDate) {
         payments.push({
           date: payDate,
@@ -160,7 +166,7 @@ export function paymentsFromSale(sale) {
 
   // Upfront — based on contract date (full 40% of base 2%)
   if (sale.contract_date && upfront > 0) {
-    const payDate = nextMonth7th(sale.contract_date)
+    const payDate = payDateFor(sale.contract_date)
     if (payDate) {
       payments.push({
         date: payDate,
@@ -179,7 +185,7 @@ export function paymentsFromSale(sale) {
 
   // Closing — based on closing date (60% of base + bonus, × split)
   if (sale.closing_date && closing > 0) {
-    const payDate = nextMonth7th(sale.closing_date)
+    const payDate = payDateFor(sale.closing_date)
     if (payDate) {
       payments.push({
         date: payDate,
