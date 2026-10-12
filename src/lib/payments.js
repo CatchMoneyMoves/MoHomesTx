@@ -31,7 +31,7 @@ const BASE_RATE = 2 // % — base commission. Anything above is bonus, loads ont
 const FIRST_HALF_PAY_DAY = 22
 const SECOND_HALF_PAY_DAY = 7
 
-function payDateFor(dateStr) {
+export function payDateFor(dateStr) {
   if (!dateStr) return null
   // Parse as local date (not UTC) to avoid timezone-off-by-one-day bug.
   // new Date('YYYY-MM-DD') parses as UTC midnight, which in US timezones
