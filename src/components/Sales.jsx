@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Plus, Edit2, Trash2, X, Check } from 'lucide-react'
+import { payDateFor } from '../lib/payments'
 
 const STATUS_OPTIONS = [
   { value: 'under_contract', label: 'Under Contract', color: 'rgb(var(--st-blue-fg))', bg: 'rgb(var(--st-blue-bg))' },
@@ -192,18 +193,16 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
     }
 
     // Payment mode (default): match if a payment lands in filter month
-    // Perry pays 40% upfront on 7th of month AFTER contract, 60% on 7th of month AFTER closing
+    // Perry pays semi-monthly: 1st–15th → 22nd same month, 16th–end → 7th next month (see payDateFor)
     if (sale.contract_date) {
-      const cd = new Date(sale.contract_date)
-      const payMonth = new Date(cd.getFullYear(), cd.getMonth() + 1, 7)
-      if (payMonth.getFullYear() === salesFilter.year && payMonth.getMonth() === salesFilter.month) {
+      const payMonth = payDateFor(String(sale.contract_date).slice(0, 10))
+      if (payMonth && payMonth.getFullYear() === salesFilter.year && payMonth.getMonth() === salesFilter.month) {
         return true
       }
     }
     if (sale.closing_date) {
-      const cd = new Date(sale.closing_date)
-      const payMonth = new Date(cd.getFullYear(), cd.getMonth() + 1, 7)
-      if (payMonth.getFullYear() === salesFilter.year && payMonth.getMonth() === salesFilter.month) {
+      const payMonth = payDateFor(String(sale.closing_date).slice(0, 10))
+      if (payMonth && payMonth.getFullYear() === salesFilter.year && payMonth.getMonth() === salesFilter.month) {
         return true
       }
     }
@@ -307,16 +306,14 @@ export default function Sales({ sales, addSale, updateSale, deleteSale, defaultR
   const paymentTypeForSale = (sale) => {
     if (!salesFilter || isContractMode) return null
     if (sale.contract_date) {
-      const cd = new Date(sale.contract_date)
-      const payMonth = new Date(cd.getFullYear(), cd.getMonth() + 1, 7)
-      if (payMonth.getFullYear() === salesFilter.year && payMonth.getMonth() === salesFilter.month) {
+      const payMonth = payDateFor(String(sale.contract_date).slice(0, 10))
+      if (payMonth && payMonth.getFullYear() === salesFilter.year && payMonth.getMonth() === salesFilter.month) {
         return { percent: 40, type: 'upfront' }
       }
     }
     if (sale.closing_date) {
-      const cd = new Date(sale.closing_date)
-      const payMonth = new Date(cd.getFullYear(), cd.getMonth() + 1, 7)
-      if (payMonth.getFullYear() === salesFilter.year && payMonth.getMonth() === salesFilter.month) {
+      const payMonth = payDateFor(String(sale.closing_date).slice(0, 10))
+      if (payMonth && payMonth.getFullYear() === salesFilter.year && payMonth.getMonth() === salesFilter.month) {
         return { percent: 60, type: 'closing' }
       }
     }
