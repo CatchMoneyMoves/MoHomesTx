@@ -1,4 +1,4 @@
-\import { useMemo } from 'react'
+import { useMemo } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, LabelList,
 } from 'recharts'
