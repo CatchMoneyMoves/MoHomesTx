@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+\import { useMemo } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, LabelList,
 } from 'recharts'
@@ -132,7 +132,7 @@ export default function MoMoney({
         <div className="flex items-baseline justify-between mb-4">
           <h3 className="font-display text-base font-medium">Commission Timeline</h3>
           <span className="text-[10px] text-subtle uppercase tracking-wider">
-            Perry pays 7th of month
+            Pays 22nd &amp; 7th
           </span>
         </div>
         {allPayments.length === 0 ? (
