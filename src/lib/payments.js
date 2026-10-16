@@ -25,9 +25,12 @@
 
 const BASE_RATE = 2 // % — base commission. Anything above is bonus, loads onto close.
 
-// Semi-monthly pay periods:
-//   1st–15th  → paid the 22nd of the SAME month
-//   16th–end  → paid the 7th of the NEXT month
+// Pay schedule changed starting October 2026.
+//   Dates BEFORE Oct 1, 2026 (old rule): paid the 7th of the NEXT month.
+//   Dates ON/AFTER Oct 1, 2026 (semi-monthly):
+//     1st–15th  → paid the 22nd of the SAME month
+//     16th–end  → paid the 7th of the NEXT month
+const SEMI_MONTHLY_START = { year: 2026, month: 10 } // 1-indexed month
 const FIRST_HALF_PAY_DAY = 22
 const SECOND_HALF_PAY_DAY = 7
 
@@ -39,6 +42,10 @@ export function payDateFor(dateStr) {
   const [year, month, day] = dateStr.split('-').map(Number)
   if (!year || !month || !day) return null
   // month is 1-indexed from the string; Date is 0-indexed.
+  const beforeSwitch =
+    year < SEMI_MONTHLY_START.year ||
+    (year === SEMI_MONTHLY_START.year && month < SEMI_MONTHLY_START.month)
+  if (beforeSwitch) return new Date(year, month, SECOND_HALF_PAY_DAY)
   if (day <= 15) return new Date(year, month - 1, FIRST_HALF_PAY_DAY)
   // Passing `month` (1-indexed) advances one month; Dec rolls into Jan.
   return new Date(year, month, SECOND_HALF_PAY_DAY)
